@@ -2,13 +2,17 @@ import { z } from "zod";
 import { SemVerSchema } from "./semver.js";
 import { SkillNameSchema } from "./skill.js";
 
-export const AgentCompatibilitySchema = z.enum([
+export const AGENT_COMPATIBILITY = [
   "cursor",
   "claude-code",
   "codex",
   "github-copilot",
   "generic",
-]);
+] as const;
+
+export const FILESYSTEM_CAPABILITIES = ["none", "read", "write"] as const;
+
+export const AgentCompatibilitySchema = z.enum(AGENT_COMPATIBILITY);
 
 export const RecipeAuthorSchema = z.object({
   name: z.string().min(1),
@@ -23,7 +27,7 @@ export const RecipeRequiresSchema = z
 
 export const RecipeCapabilitiesSchema = z
   .object({
-    filesystem: z.enum(["none", "read", "write"]).default("none"),
+    filesystem: z.enum(FILESYSTEM_CAPABILITIES).default("none"),
     network: z.array(z.string()).default([]),
     shell: z.boolean().default(false),
   })

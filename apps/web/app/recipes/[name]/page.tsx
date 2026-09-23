@@ -84,7 +84,11 @@ export default async function RecipePage({
           <p className="meta rise" style={{ animationDelay: "200ms" }}>
             Latest {history.latest}. Showing {recipe.manifest.version}.
           </p>
-          <div className="versions rise" aria-label="Versions" style={{ animationDelay: "240ms" }}>
+          <div
+            className="versions rise"
+            aria-label="Versions"
+            style={{ animationDelay: "240ms" }}
+          >
             {history.versions.map(function renderVersion(item) {
               const current = item.version === recipe.manifest.version;
               return (
@@ -195,8 +199,11 @@ export default async function RecipePage({
               )}
             </Bezel>
             <Bezel coreClassName="panel">
-              <h3>Integrity</h3>
+              <h3>Package</h3>
+              <p>Version {recipe.manifest.version} is immutable.</p>
               <p className="version">{pkg.integrity}</p>
+              <p>Schema valid. Package paths validated.</p>
+              <p>Source: PromptMarket registry.</p>
             </Bezel>
           </aside>
         </div>

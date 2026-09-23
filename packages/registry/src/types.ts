@@ -18,7 +18,22 @@ export type RecipeIssueCode =
   | "skill_invalid"
   | "name_mismatch"
   | "invalid_version"
-  | "version_mismatch";
+  | "version_mismatch"
+  | "recipe_name_invalid"
+  | "skill_description_missing"
+  | "author_missing"
+  | "author_url_invalid"
+  | "compatibility_invalid"
+  | "tag_invalid"
+  | "filesystem_invalid"
+  | "network_invalid"
+  | "mcp_invalid"
+  | "instructions_missing"
+  | "unsafe_path"
+  | "duplicate_path"
+  | "package_too_large"
+  | "too_many_files"
+  | "package_structure";
 
 export type RecipeIssue = {
   code: RecipeIssueCode;

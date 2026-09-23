@@ -31,3 +31,8 @@ export function versionQuery(
   }
   return raw;
 }
+
+export function submitCommand(name: string): string {
+  const recipe = name.trim().length > 0 ? name.trim() : "my-recipe";
+  return `pnpm dlx @promptmarket/cli submit ./${recipe}`;
+}

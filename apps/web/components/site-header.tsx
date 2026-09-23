@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 
 const links = [
+  { href: "/create", label: "Create" },
   { href: "/docs", label: "Docs" },
+  { href: "/contribute", label: "Contribute" },
   { href: "https://github.com/drewsephski/promptmarket", label: "GitHub" },
 ];
 
@@ -97,8 +99,10 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="footer">
-      <p>Tested agent recipes. Installed with the CLI or loaded through MCP.</p>
-      <a href="/docs">Read the docs</a>
+      <p>
+        Validated agent recipes. Installed with the CLI or loaded through MCP.
+      </p>
+      <a href="/contribute">Contribute a recipe</a>
     </footer>
   );
 }

@@ -33,43 +33,61 @@ export default function DocsPage() {
       </div>
 
       <div className="rise" style={{ animationDelay: "220ms" }}>
-      <Bezel coreClassName="panel">
-        <h2>CLI</h2>
-        <CommandBlock
-          command={`pnpm dlx @promptmarket/cli search "pull request"
+        <Bezel coreClassName="panel">
+          <h2>CLI</h2>
+          <CommandBlock
+            command={`pnpm dlx @promptmarket/cli search "pull request"
 pnpm dlx @promptmarket/cli info github-pr-review
 pnpm dlx @promptmarket/cli add github-pr-review
 pnpm dlx @promptmarket/cli add github-pr-review@0.1.0
 pnpm dlx @promptmarket/cli install`}
-          label="Copy CLI examples"
-        />
-        <p className="note">
-          <code>add</code> writes the recipe to <code>.agents/skills/</code> and
-          records name, version, source, and integrity. <code>install</code>{" "}
-          reads that lockfile and does not move you to a newer version.
-        </p>
-      </Bezel>
+            label="Copy CLI examples"
+          />
+          <p className="note">
+            <code>add</code> writes the recipe to <code>.agents/skills/</code>{" "}
+            and records name, version, source, and integrity.{" "}
+            <code>install</code> reads that lockfile and does not move you to a
+            newer version.
+          </p>
+        </Bezel>
       </div>
 
       <div className="rise" style={{ animationDelay: "300ms" }}>
-      <Bezel coreClassName="panel">
-        <h2>MCP</h2>
-        <p>
-          Compatible agents can search, inspect, list versions, and load
-          PromptMarket recipes from the hosted endpoint.
-        </p>
-        <CommandBlock command={HOSTED_MCP_URL} label="Copy MCP endpoint" />
-        <p className="note">
-          Cursor can call that endpoint with a remote MCP server entry:
-        </p>
-        <CommandBlock command={cursorConfig} label="Copy Cursor MCP config" />
-        <p className="note">
-          Tools: <code>search_recipes</code>, <code>inspect_recipe</code>,{" "}
-          <code>list_recipe_versions</code>, and <code>get_recipe</code>. Pass{" "}
-          <code>version</code> to inspect or load an exact release. Search
-          results stay summaries and do not include SKILL.md bodies.
-        </p>
-      </Bezel>
+        <Bezel coreClassName="panel">
+          <h2>MCP</h2>
+          <p>
+            Compatible agents can search, inspect, list versions, and load
+            PromptMarket recipes from the hosted endpoint.
+          </p>
+          <CommandBlock command={HOSTED_MCP_URL} label="Copy MCP endpoint" />
+          <p className="note">
+            Cursor can call that endpoint with a remote MCP server entry:
+          </p>
+          <CommandBlock command={cursorConfig} label="Copy Cursor MCP config" />
+          <p className="note">
+            Tools: <code>search_recipes</code>, <code>inspect_recipe</code>,{" "}
+            <code>list_recipe_versions</code>, and <code>get_recipe</code>. Pass{" "}
+            <code>version</code> to inspect or load an exact release. Search
+            results stay summaries and do not include SKILL.md bodies.
+          </p>
+        </Bezel>
+      </div>
+
+      <div className="rise" style={{ animationDelay: "380ms" }}>
+        <Bezel coreClassName="panel">
+          <h2>Author</h2>
+          <p>
+            Create a recipe locally, validate it, and open a GitHub pull
+            request. The steps are on <a href="/contribute">Contribute</a>.
+          </p>
+          <CommandBlock
+            command={`pnpm dlx @promptmarket/cli init my-recipe
+pnpm dlx @promptmarket/cli check ./my-recipe
+pnpm dlx @promptmarket/cli pack ./my-recipe
+pnpm dlx @promptmarket/cli submit ./my-recipe`}
+            label="Copy author commands"
+          />
+        </Bezel>
       </div>
     </main>
   );

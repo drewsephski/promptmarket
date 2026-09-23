@@ -1,8 +1,10 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { SemVerSchema } from "@promptmarket/schema";
+import { auditRecipeDirectory } from "./package-audit.js";
 import { parseManifestText } from "./parse-manifest.js";
 import { parseSkillText } from "./parse-skill.js";
+import { policyIssues } from "./policy.js";
 import type { RecipeIssue, RecipeValidation } from "./types.js";
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -86,6 +88,7 @@ export function validateRecipeTexts(
     });
   }
 
+  errors.push(...policyIssues(manifestResult.manifest, skillResult.skill));
   if (errors.length > 0) {
     return { ok: false, errors };
   }
@@ -112,13 +115,30 @@ export async function validateRecipe(
     ? await readFile(skillPath, "utf8")
     : undefined;
   const directoryName = path.basename(resolved);
-  if (SemVerSchema.safeParse(directoryName).success) {
-    return validateRecipeTexts(
-      path.basename(path.dirname(resolved)),
-      manifestText,
-      skillText,
-      { versionDirectory: directoryName },
-    );
+  const textResult = SemVerSchema.safeParse(directoryName).success
+    ? validateRecipeTexts(
+        path.basename(path.dirname(resolved)),
+        manifestText,
+        skillText,
+        { versionDirectory: directoryName },
+      )
+    : validateRecipeTexts(directoryName, manifestText, skillText);
+
+  let fileIssues: RecipeIssue[] = [];
+  try {
+    const info = await stat(resolved);
+    if (info.isDirectory()) {
+      fileIssues = await auditRecipeDirectory(resolved);
+    }
+  } catch {
+    fileIssues = [];
   }
-  return validateRecipeTexts(directoryName, manifestText, skillText);
+
+  if (fileIssues.length === 0) {
+    return textResult;
+  }
+  if (textResult.ok) {
+    return { ok: false, errors: fileIssues };
+  }
+  return { ok: false, errors: [...textResult.errors, ...fileIssues] };
 }

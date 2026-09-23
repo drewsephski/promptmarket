@@ -1,15 +1,17 @@
 import { Command, CommanderError } from "commander";
 import {
-  FileRegistry,
-  RemoteRegistry,
   findOutdatedRecipes,
   installFromLockfile,
   installRecipe,
   parseRecipeRef,
   validateRecipe,
   type Recipe,
-  type Registry,
 } from "@promptmarket/registry";
+import { registerAuthorCommands, type CliDeps } from "./author-commands.js";
+import { createRegistry } from "./registry-option.js";
+
+export type { CliDeps } from "./author-commands.js";
+export { createRegistry } from "./registry-option.js";
 
 export type CliIo = {
   stdout: (message: string) => void;
@@ -31,21 +33,6 @@ type CommandState = {
 
 function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
-}
-
-type RegistryFlags = {
-  recipes?: string;
-  registry?: string;
-};
-
-export function createRegistry(options: RegistryFlags): Registry {
-  if (options.recipes) {
-    return new FileRegistry({ recipesDir: options.recipes });
-  }
-  if (options.registry) {
-    return new RemoteRegistry(options.registry);
-  }
-  return new RemoteRegistry();
 }
 
 function errorMessage(error: unknown): string {
@@ -101,12 +88,18 @@ function writeFailure(
   io.stderr(`${message}\n`);
 }
 
-export function createProgram(io: CliIo, state: CommandState): Command {
+export function createProgram(
+  io: CliIo,
+  state: CommandState,
+  deps: CliDeps = {},
+): Command {
   const program = new Command();
   program
     .name("promptmarket")
-    .description("Search, inspect, validate, and install PromptMarket recipes")
-    .version("0.2.0")
+    .description(
+      "Search, inspect, validate, pack, and submit PromptMarket recipes",
+    )
+    .version("0.3.0")
     .configureOutput({
       writeOut: function writeOut(message: string) {
         io.stdout(message);
@@ -361,15 +354,18 @@ export function createProgram(io: CliIo, state: CommandState): Command {
       }
     });
 
+  registerAuthorCommands(program, io, state, deps);
+
   return program;
 }
 
 export async function run(
   argv: string[],
   io: CliIo = defaultIo,
+  deps: CliDeps = {},
 ): Promise<number> {
   const state: CommandState = { exitCode: 0 };
-  const program = createProgram(io, state);
+  const program = createProgram(io, state, deps);
   try {
     await program.parseAsync(argv);
   } catch (error) {

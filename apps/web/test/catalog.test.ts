@@ -7,6 +7,7 @@ import {
   latestInstallCommand,
   recipeHref,
   searchQuery,
+  submitCommand,
   versionQuery,
 } from "../lib/present";
 
@@ -27,6 +28,9 @@ describe("catalog presentation", function catalogPresentation() {
     );
     expect(searchQuery(["database", "ignored"])).toBe("database");
     expect(versionQuery(undefined)).toBeUndefined();
+    expect(submitCommand("my-recipe")).toBe(
+      "pnpm dlx @promptmarket/cli submit ./my-recipe",
+    );
   });
 
   test("searches the same registry the CLI uses", async function searchesRegistry() {

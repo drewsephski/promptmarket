@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm check-types
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: Reject changes to published recipe versions
+        if: github.event_name == 'pull_request'
+        run: node packages/registry/dist/check-recipes.js --base ${{ github.event.pull_request.base.sha }}
+
+      - name: Validate the recipe registry
+        if: github.event_name != 'pull_request'
+        run: node packages/registry/dist/check-recipes.js

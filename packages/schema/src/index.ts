@@ -6,7 +6,9 @@ export {
   type LockfileEntry,
 } from "./lockfile.js";
 export {
+  AGENT_COMPATIBILITY,
   AgentCompatibilitySchema,
+  FILESYSTEM_CAPABILITIES,
   RecipeManifestSchema,
   type RecipeManifest,
 } from "./recipe.js";
@@ -34,6 +36,7 @@ export {
   type RecipeVersionSummary,
 } from "./registry-api.js";
 export { compareSemver, latestSemver, SemVerSchema } from "./semver.js";
+export { scaffoldInstructions, titleFromRecipeName } from "./scaffold.js";
 export {
   SkillDocumentSchema,
   SkillFrontmatterSchema,

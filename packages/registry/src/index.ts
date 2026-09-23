@@ -38,6 +38,8 @@ export {
 export {
   InvalidRecipeReferenceError,
   parseRecipeRef,
+  AGENT_COMPATIBILITY,
+  FILESYSTEM_CAPABILITIES,
 } from "@promptmarket/schema";
 export {
   DEFAULT_REGISTRY_URL,
@@ -66,4 +68,42 @@ export type {
   SkillDocument,
 } from "./types.js";
 export type { RecipeVersionList } from "./types.js";
+export {
+  coerceRecipeDraft,
+  renderRecipeDraft,
+  scaffoldInstructions,
+  titleFromRecipeName,
+  validateRecipeDraft,
+  writeRecipeDraft,
+  type RecipeDraft,
+  type RenderedRecipe,
+} from "./authoring.js";
+export { tarGzRecipeArchive, zipRecipeArchive } from "./archive.js";
+export {
+  checkRecipeRepository,
+  diffRecipeVersions,
+  loadRecipeTree,
+  loadRecipeTreeFromGit,
+  type CheckIssue,
+  type ImmutabilityIssue,
+  type RecipeVersionFiles,
+} from "./immutability.js";
+export { packRecipe, type PackedRecipe } from "./pack-recipe.js";
+export {
+  createProcessRunner,
+  type ProcessResult,
+  type ProcessRunner,
+} from "./process-runner.js";
+export {
+  recipeBranchName,
+  renderPullRequestBody,
+  submitRecipe,
+  SubmitError,
+  UPSTREAM_BASE,
+  UPSTREAM_REPOSITORY,
+  type SubmitPlan,
+  type SubmitResult,
+} from "./submit-recipe.js";
+export { digestFiles } from "./digest.js";
+export { normalizeRecipeFiles, readRecipeFiles } from "./recipe-files.js";
 export { validateRecipe, validateRecipeTexts } from "./validate-recipe.js";

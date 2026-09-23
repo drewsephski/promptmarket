@@ -32,12 +32,13 @@ export default async function Home({ searchParams }: HomeProps) {
             Registry for agent skills
           </p>
           <h1 className="rise" style={{ animationDelay: "120ms" }}>
-            Tested agent recipes for AI coding agents.
+            Validated agent recipes for AI coding agents.
           </h1>
           <p className="lede rise" style={{ animationDelay: "200ms" }}>
-            Discover a recipe, inspect what it will do, then install it into{" "}
+            Discover a recipe, inspect what it declares, then install it into{" "}
             <code>.agents/skills</code> or load it through the hosted MCP
-            server.
+            server. To publish one, <a href="/create">create it</a> and submit a
+            pull request.
           </p>
         </div>
         <div className="channels">
@@ -50,10 +51,16 @@ export default async function Home({ searchParams }: HomeProps) {
               />
             </Bezel>
           </div>
-          <div className="rise channel-offset" style={{ animationDelay: "360ms" }}>
+          <div
+            className="rise channel-offset"
+            style={{ animationDelay: "360ms" }}
+          >
             <Bezel coreClassName="channel">
               <h2>Hosted MCP</h2>
-              <CommandBlock command={HOSTED_MCP_URL} label="Copy MCP endpoint" />
+              <CommandBlock
+                command={HOSTED_MCP_URL}
+                label="Copy MCP endpoint"
+              />
             </Bezel>
           </div>
         </div>
@@ -146,7 +153,8 @@ export default async function Home({ searchParams }: HomeProps) {
               <span className="numeral">01</span>
               <strong>Discover</strong>
               <p className="note">
-                Search the catalog here, or with <code>promptmarket search</code>.
+                Search the catalog here, or with{" "}
+                <code>promptmarket search</code>.
               </p>
             </Bezel>
           </article>
@@ -155,8 +163,8 @@ export default async function Home({ searchParams }: HomeProps) {
               <span className="numeral">02</span>
               <strong>Inspect</strong>
               <p className="note">
-                Read the procedure, the capabilities it declares, and any MCP server
-                it expects.
+                Read the procedure, the capabilities it declares, and any MCP
+                server it expects.
               </p>
             </Bezel>
           </article>

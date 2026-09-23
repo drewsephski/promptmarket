@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     default: "PromptMarket",
     template: "%s · PromptMarket",
   },
-  description: "Tested agent recipes for AI coding agents.",
+  description: "Validated agent recipes for AI coding agents.",
 };
 
 export default function RootLayout({
@@ -37,7 +37,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+    <html
+      lang="en"
+      className={`${display.variable} ${sans.variable} ${mono.variable}`}
+    >
       <body>
         <div className="atmosphere" aria-hidden="true" />
         <div className="grain" aria-hidden="true" />
