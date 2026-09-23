@@ -59,7 +59,7 @@ export function FlowDiagram({ id }: { id: DiagramId }) {
             <li key={step}>
               {index > 0 ? (
                 <span className="flow-arrow" aria-hidden="true">
-                  ↓
+                  →
                 </span>
               ) : null}
               <span>{step}</span>

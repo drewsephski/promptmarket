@@ -1,7 +1,7 @@
 {
   "name": "@promptmarket/cli",
   "version": "0.3.0",
-  "description": "Discover, validate, and submit agent recipes on PromptMarket.",
+  "description": "Search PromptMarket prompts and lessons, and install skills.",
   "license": "MIT",
   "type": "module",
   "bin": {

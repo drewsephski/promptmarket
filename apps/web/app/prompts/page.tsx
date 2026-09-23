@@ -5,6 +5,7 @@ import {
 } from "@promptmarket/content";
 import type { Metadata } from "next";
 import { Bezel } from "../../components/bezel";
+import { PromptFilters } from "../../components/filter-select";
 import { ArrowMark } from "../../components/marks";
 import { catalogRegistry } from "../../lib/catalog";
 import {
@@ -80,70 +81,27 @@ export default async function PromptsPage({ searchParams }: PromptsPageProps) {
           coding agents, kept separate from prompts.
         </p>
       </div>
-      <form className="filters" action="/prompts" method="get" role="search">
-        <label className="filter-field">
-          <span>Search</span>
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="structured output, RAG, triage"
-          />
-        </label>
-        <label className="filter-field">
-          <span>Category</span>
-          <select name="category" defaultValue={selectedCategory}>
-            <option value="">All</option>
-            {PROMPT_CATEGORIES.map(function renderCategory(item) {
-              return (
-                <option key={item} value={item}>
-                  {CATEGORY_LABELS[item]}
-                </option>
-              );
-            })}
-          </select>
-        </label>
-        <label className="filter-field">
-          <span>Type</span>
-          <select
-            name="kind"
-            defaultValue={kind === "skill" || kind === "prompt" ? kind : ""}
-          >
-            <option value="">Prompts and skills</option>
-            <option value="prompt">Prompts</option>
-            <option value="skill">Skills</option>
-          </select>
-        </label>
-        <label className="filter-field">
-          <span>Difficulty</span>
-          <select
-            name="difficulty"
-            defaultValue={
-              difficulty === "beginner" ||
-              difficulty === "intermediate" ||
-              difficulty === "advanced"
-                ? difficulty
-                : ""
-            }
-          >
-            <option value="">Any</option>
-            <option value="beginner">Beginner</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="advanced">Advanced</option>
-          </select>
-        </label>
-        <button className="pill" type="submit">
-          <span>Apply</span>
-          <span className="pill-mark" aria-hidden="true">
-            <ArrowMark />
-          </span>
-        </button>
-      </form>
+      <PromptFilters
+        query={q}
+        category={selectedCategory}
+        kind={kind === "skill" || kind === "prompt" ? kind : ""}
+        difficulty={
+          difficulty === "beginner" ||
+          difficulty === "intermediate" ||
+          difficulty === "advanced"
+            ? difficulty
+            : ""
+        }
+        categories={PROMPT_CATEGORIES.map(function renderCategory(item) {
+          return { value: item, label: CATEGORY_LABELS[item] };
+        })}
+      />
       {results.length === 0 ? (
         <p className="empty">
           Nothing matched. Try a broader search, or clear a filter.
         </p>
       ) : (
-        <div className="catalog">
+        <div className="catalog catalog-grid">
           {results.map(function renderItem(item) {
             return (
               <GalleryCard item={item} key={`${item.kind}-${item.slug}`} />
