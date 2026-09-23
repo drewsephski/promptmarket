@@ -44,6 +44,7 @@ export interface Registry {
   list(): Promise<Recipe[]>;
   get(name: string): Promise<Recipe>;
   search(query: string): Promise<Recipe[]>;
+  scan(): Promise<RegistryScan>;
 }
 
 export type RecipeValidation =

@@ -66,6 +66,9 @@ function registryWith(recipes: Recipe[]): Registry {
         });
       });
     },
+    async scan() {
+      return { recipes, invalid: [] };
+    },
   };
 }
 

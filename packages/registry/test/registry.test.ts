@@ -13,14 +13,15 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { LockfileSchema } from "@promptmarket/schema";
 import {
   FILE_REGISTRY_SOURCE,
+  FileRegistry,
   getRecipe,
   installRecipe,
   InvalidRecipeError,
   InvalidRecipeNameError,
   RecipeNotFoundError,
-  scanRecipes,
   searchRecipes,
   validateRecipe,
+  type Registry,
 } from "../src/index.js";
 
 const recipesDir = path.resolve(import.meta.dirname, "../../../recipes");
@@ -264,9 +265,10 @@ describe("registry", function registry() {
       parent: sourceRoot,
     });
 
+    const registry: Registry = new FileRegistry({ recipesDir: sourceRoot });
     const recipe = await getRecipe("sample-recipe", { recipesDir: sourceRoot });
     const matches = await searchRecipes("sample", { recipesDir: sourceRoot });
-    const scan = await scanRecipes({ recipesDir: sourceRoot });
+    const scan = await registry.scan();
 
     expect(recipe.manifest.name).toBe("sample-recipe");
     expect(
