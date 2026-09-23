@@ -1,5 +1,5 @@
 {
-  "name": "@promptmarket/schema",
+  "name": "@promptmarket/registry",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -18,7 +18,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "^4.6.5"
+    "@promptmarket/schema": "workspace:*",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

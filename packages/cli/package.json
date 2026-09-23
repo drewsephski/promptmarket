@@ -1,12 +1,24 @@
 {
   "name": "@promptmarket/cli",
   "version": "0.0.1",
+  "private": true,
   "type": "module",
   "bin": {
-    "promptmarket": "./dist/index.js"
+    "promptmarket": "./bin/promptmarket.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc -p tsconfig.check.json",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@clack/prompts": "^1.8.1",
+    "@promptmarket/registry": "workspace:*",
     "commander": "^15.0.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "26.4.1",
+    "typescript": "7.0.2",
+    "vitest": "^3.2.4"
   }
 }
