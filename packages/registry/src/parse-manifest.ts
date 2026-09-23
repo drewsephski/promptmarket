@@ -8,12 +8,10 @@ import { issuesFromZod } from "./issues.js";
 import type { RecipeIssue } from "./types.js";
 
 export type ParseManifestResult =
-  { ok: true; manifest: RecipeManifest } | { ok: false; errors: RecipeIssue[] };
+  | { ok: true; manifest: RecipeManifest }
+  | { ok: false; errors: RecipeIssue[] };
 
-export async function parseManifestFile(
-  filePath: string,
-): Promise<ParseManifestResult> {
-  const text = await readFile(filePath, "utf8");
+export function parseManifestText(text: string): ParseManifestResult {
   let parsed: unknown;
   try {
     parsed = parse(text, { schema: "core" });
@@ -43,4 +41,11 @@ export async function parseManifestFile(
   }
 
   return { ok: true, manifest: result.data };
+}
+
+export async function parseManifestFile(
+  filePath: string,
+): Promise<ParseManifestResult> {
+  const text = await readFile(filePath, "utf8");
+  return parseManifestText(text);
 }

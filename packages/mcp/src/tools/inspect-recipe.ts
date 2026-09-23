@@ -11,6 +11,13 @@ const outputSchema = z.object({
   name: z.string(),
   version: z.string(),
   description: z.string(),
+  author: z.object({
+    name: z.string(),
+    url: z.string().optional(),
+  }),
+  compatibility: z.array(
+    z.enum(["cursor", "claude-code", "codex", "github-copilot", "generic"]),
+  ),
   requires: z.object({
     mcp: z.array(z.string()),
   }),
@@ -19,6 +26,7 @@ const outputSchema = z.object({
     network: z.array(z.string()),
     shell: z.boolean(),
   }),
+  tags: z.array(z.string()),
 });
 
 const annotations = {
@@ -48,8 +56,11 @@ export function registerInspectRecipe(
           name: recipe.manifest.name,
           version: recipe.manifest.version,
           description: recipe.skill.description,
+          author: recipe.manifest.author,
+          compatibility: recipe.manifest.compatibility,
           requires: recipe.manifest.requires,
           capabilities: recipe.manifest.capabilities,
+          tags: recipe.manifest.tags,
         });
       } catch (error) {
         return toolError(error);

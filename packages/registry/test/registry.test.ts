@@ -12,15 +12,18 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { LockfileSchema } from "@promptmarket/schema";
 import {
-  FILE_REGISTRY_SOURCE,
+  FILE_RECIPE_SOURCE,
   FileRegistry,
   getRecipe,
   installRecipe,
   InvalidRecipeError,
   InvalidRecipeNameError,
   RecipeNotFoundError,
+  UnsafeRecipePathError,
+  scanRecipes,
   searchRecipes,
   validateRecipe,
+  type Recipe,
   type Registry,
 } from "../src/index.js";
 
@@ -108,7 +111,7 @@ describe("registry", function registry() {
       "Review GitHub pull requests for correctness, regressions, security issues, maintainability, and missing tests. Use when asked to inspect or review a pull request.",
     );
     expect(result.recipe.skill.body).toContain("# GitHub Pull Request Review");
-    expect(path.basename(result.recipe.path)).toBe("github-pr-review");
+    expect(result.recipe).not.toHaveProperty("path");
   });
 
   test("rejects an invalid manifest name", async function rejectsInvalidName() {
@@ -265,7 +268,7 @@ describe("registry", function registry() {
       parent: sourceRoot,
     });
 
-    const registry: Registry = new FileRegistry({ recipesDir: sourceRoot });
+    const registry = new FileRegistry({ recipesDir: sourceRoot });
     const recipe = await getRecipe("sample-recipe", { recipesDir: sourceRoot });
     const matches = await searchRecipes("sample", { recipesDir: sourceRoot });
     const scan = await registry.scan();
@@ -273,7 +276,7 @@ describe("registry", function registry() {
     expect(recipe.manifest.name).toBe("sample-recipe");
     expect(
       matches.map(function nameOf(item) {
-        return item.manifest.name;
+        return item.name;
       }),
     ).toEqual(["sample-recipe"]);
     expect(scan.invalid).toHaveLength(1);
@@ -292,7 +295,7 @@ describe("registry", function registry() {
 
     expect(
       matches.map(function nameOf(recipe) {
-        return recipe.manifest.name;
+        return recipe.name;
       }),
     ).toEqual(["github-pr-review"]);
     expect(misses).toEqual([]);
@@ -315,7 +318,7 @@ describe("registry", function registry() {
             "other-recipe": {
               name: "other-recipe",
               version: "1.0.0",
-              source: "/tmp/other-recipe",
+              source: { type: "file" },
               integrity: "sha256-eA==",
             },
           },
@@ -325,12 +328,13 @@ describe("registry", function registry() {
       )}\n`,
     );
 
+    const registry = new FileRegistry({ recipesDir: sourceRoot });
     const installed = await installRecipe("github-pr-review", {
-      recipesDir: sourceRoot,
+      registry,
       projectDir,
     });
     const installedAgain = await installRecipe("github-pr-review", {
-      recipesDir: sourceRoot,
+      registry,
       projectDir,
     });
     const skill = await readFile(
@@ -357,14 +361,14 @@ describe("registry", function registry() {
     expect(installed.destination).toBe(
       path.join(projectDir, ".agents", "skills", "github-pr-review"),
     );
-    expect(installed.source).toBe(FILE_REGISTRY_SOURCE);
-    expect(installed.source).not.toContain(tempRoot);
+    expect(installed.source).toEqual(FILE_RECIPE_SOURCE);
+    expect(JSON.stringify(installed.source)).not.toContain(tempRoot);
     expect(installed.integrity).toMatch(/^sha256-[A-Za-z0-9+/]+=*$/);
     expect(installedAgain.integrity).toBe(installed.integrity);
     expect(lock.recipes["github-pr-review"]).toEqual({
       name: "github-pr-review",
       version: "0.1.0",
-      source: FILE_REGISTRY_SOURCE,
+      source: FILE_RECIPE_SOURCE,
       integrity: installed.integrity,
     });
     await expect(
@@ -383,10 +387,109 @@ describe("registry", function registry() {
     await writeFile(path.join(projectDir, "promptmarket.lock"), "{\n");
 
     await expect(
-      installRecipe("github-pr-review", { recipesDir, projectDir }),
+      installRecipe("github-pr-review", {
+        registry: new FileRegistry({ recipesDir }),
+        projectDir,
+      }),
     ).rejects.toThrow(/promptmarket.lock/);
     await expect(
       stat(path.join(projectDir, ".agents", "skills", "github-pr-review")),
     ).rejects.toThrow();
+  });
+
+  test("reports a directory that contains only SKILL.md", async function reportsMissingManifest() {
+    const sourceRoot = path.join(tempRoot, "recipes");
+    await writeRecipe({
+      directoryName: "broken-recipe",
+      skill: validSkill.replaceAll("sample-recipe", "broken-recipe"),
+      parent: sourceRoot,
+    });
+
+    const scan = await scanRecipes({ recipesDir: sourceRoot });
+
+    expect(scan.recipes).toEqual([]);
+    expect(scan.invalid).toEqual([
+      {
+        path: path.join(sourceRoot, "broken-recipe"),
+        errors: [
+          {
+            code: "manifest_missing",
+            path: "promptmarket.yaml",
+            message: "promptmarket.yaml is missing",
+          },
+        ],
+      },
+    ]);
+  });
+
+  test("treats an empty search as every recipe", async function listsOnEmptySearch() {
+    const matches = await searchRecipes("", { recipesDir });
+
+    expect(
+      matches.map(function nameOf(recipe) {
+        return recipe.name;
+      }),
+    ).toEqual(["github-pr-review"]);
+    expect(matches[0]?.compatibility).toEqual([
+      "cursor",
+      "claude-code",
+      "codex",
+      "generic",
+    ]);
+  });
+
+  test("refuses to install a package path that escapes the destination", async function refusesTraversal() {
+    const projectDir = path.join(tempRoot, "project");
+    await mkdir(projectDir, { recursive: true });
+    const recipe: Recipe = {
+      manifest: {
+        schemaVersion: 1,
+        name: "sample-recipe",
+        version: "0.1.0",
+        author: { name: "PromptMarket" },
+        compatibility: ["generic"],
+        requires: { mcp: [] },
+        capabilities: { filesystem: "none", network: [], shell: false },
+        entrypoint: "SKILL.md",
+        tags: [],
+      },
+      skill: {
+        name: "sample-recipe",
+        description: "A sample recipe used to test registry validation.",
+        body: "# Sample\n",
+      },
+    };
+    const registry: Registry = {
+      source: FILE_RECIPE_SOURCE,
+      async list() {
+        return [];
+      },
+      async get() {
+        return recipe;
+      },
+      async search() {
+        return [];
+      },
+      async fetchPackage() {
+        return {
+          recipe,
+          integrity: "sha256-eA==",
+          files: [
+            {
+              path: "../../../etc/passwd",
+              contents: new TextEncoder().encode("nope\n"),
+            },
+          ],
+        };
+      },
+    };
+
+    await expect(
+      installRecipe("sample-recipe", { registry, projectDir }),
+    ).rejects.toBeInstanceOf(UnsafeRecipePathError);
+    await expect(
+      stat(path.join(projectDir, ".agents", "skills", "sample-recipe")),
+    ).rejects.toThrow();
+    await expect(stat(path.join(tempRoot, "etc", "passwd"))).rejects.toThrow();
   });
 });

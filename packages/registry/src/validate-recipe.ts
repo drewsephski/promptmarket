@@ -1,7 +1,7 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { parseManifestFile } from "./parse-manifest.js";
-import { parseSkillFile } from "./parse-skill.js";
+import { parseManifestText } from "./parse-manifest.js";
+import { parseSkillText } from "./parse-skill.js";
 import type { RecipeIssue, RecipeValidation } from "./types.js";
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -13,16 +13,14 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
-export async function validateRecipe(
-  recipePath: string,
-): Promise<RecipeValidation> {
-  const resolved = path.resolve(recipePath);
-  const directoryName = path.basename(resolved);
-  const manifestPath = path.join(resolved, "promptmarket.yaml");
-  const skillPath = path.join(resolved, "SKILL.md");
+export function validateRecipeTexts(
+  directoryName: string,
+  manifestText: string | undefined,
+  skillText: string | undefined,
+): RecipeValidation {
   const errors: RecipeIssue[] = [];
 
-  if (!(await fileExists(manifestPath))) {
+  if (manifestText === undefined) {
     errors.push({
       code: "manifest_missing",
       path: "promptmarket.yaml",
@@ -30,7 +28,7 @@ export async function validateRecipe(
     });
   }
 
-  if (!(await fileExists(skillPath))) {
+  if (skillText === undefined) {
     errors.push({
       code: "skill_missing",
       path: "SKILL.md",
@@ -38,12 +36,12 @@ export async function validateRecipe(
     });
   }
 
-  if (errors.length > 0) {
+  if (manifestText === undefined || skillText === undefined) {
     return { ok: false, errors };
   }
 
-  const manifestResult = await parseManifestFile(manifestPath);
-  const skillResult = await parseSkillFile(skillPath);
+  const manifestResult = parseManifestText(manifestText);
+  const skillResult = parseSkillText(skillText);
 
   if (!manifestResult.ok) {
     errors.push(...manifestResult.errors);
@@ -80,7 +78,21 @@ export async function validateRecipe(
     recipe: {
       manifest: manifestResult.manifest,
       skill: skillResult.skill,
-      path: resolved,
     },
   };
+}
+
+export async function validateRecipe(
+  recipePath: string,
+): Promise<RecipeValidation> {
+  const resolved = path.resolve(recipePath);
+  const manifestPath = path.join(resolved, "promptmarket.yaml");
+  const skillPath = path.join(resolved, "SKILL.md");
+  const manifestText = (await fileExists(manifestPath))
+    ? await readFile(manifestPath, "utf8")
+    : undefined;
+  const skillText = (await fileExists(skillPath))
+    ? await readFile(skillPath, "utf8")
+    : undefined;
+  return validateRecipeTexts(path.basename(resolved), manifestText, skillText);
 }

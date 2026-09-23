@@ -2,36 +2,46 @@ import { z } from "zod";
 import { SemVerSchema } from "./semver.js";
 import { SkillNameSchema } from "./skill.js";
 
+export const AgentCompatibilitySchema = z.enum([
+  "cursor",
+  "claude-code",
+  "codex",
+  "github-copilot",
+  "generic",
+]);
+
+export const RecipeAuthorSchema = z.object({
+  name: z.string().min(1),
+  url: z.url().optional(),
+});
+
+export const RecipeRequiresSchema = z
+  .object({
+    mcp: z.array(z.string()).default([]),
+  })
+  .default({ mcp: [] });
+
+export const RecipeCapabilitiesSchema = z
+  .object({
+    filesystem: z.enum(["none", "read", "write"]).default("none"),
+    network: z.array(z.string()).default([]),
+    shell: z.boolean().default(false),
+  })
+  .default({
+    filesystem: "none",
+    network: [],
+    shell: false,
+  });
+
 export const RecipeManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
     name: SkillNameSchema,
     version: SemVerSchema,
-    author: z.object({
-      name: z.string().min(1),
-      url: z.url().optional(),
-    }),
-    compatibility: z
-      .array(
-        z.enum(["cursor", "claude-code", "codex", "github-copilot", "generic"]),
-      )
-      .default(["generic"]),
-    requires: z
-      .object({
-        mcp: z.array(z.string()).default([]),
-      })
-      .default({ mcp: [] }),
-    capabilities: z
-      .object({
-        filesystem: z.enum(["none", "read", "write"]).default("none"),
-        network: z.array(z.string()).default([]),
-        shell: z.boolean().default(false),
-      })
-      .default({
-        filesystem: "none",
-        network: [],
-        shell: false,
-      }),
+    author: RecipeAuthorSchema,
+    compatibility: z.array(AgentCompatibilitySchema).default(["generic"]),
+    requires: RecipeRequiresSchema,
+    capabilities: RecipeCapabilitiesSchema,
     entrypoint: z.literal("SKILL.md").default("SKILL.md"),
     tags: z.array(z.string()).default([]),
   })

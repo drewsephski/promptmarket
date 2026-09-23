@@ -1,4 +1,11 @@
-import type { RecipeManifest } from "@promptmarket/schema";
+import type {
+  RecipeManifest,
+  RecipeSource,
+  RecipeSummary,
+  SkillDocument,
+} from "@promptmarket/schema";
+
+export type { RecipeSource, RecipeSummary, SkillDocument };
 
 export type RecipeIssueCode =
   | "manifest_missing"
@@ -16,16 +23,20 @@ export type RecipeIssue = {
   path: string;
 };
 
-export type SkillDocument = {
-  name: string;
-  description: string;
-  body: string;
-};
-
 export type Recipe = {
   manifest: RecipeManifest;
   skill: SkillDocument;
+};
+
+export type RecipeFile = {
   path: string;
+  contents: Uint8Array;
+};
+
+export type RecipePackage = {
+  recipe: Recipe;
+  files: RecipeFile[];
+  integrity: string;
 };
 
 export type RegistryOptions = {
@@ -41,23 +52,26 @@ export type RegistryScan = {
 };
 
 export interface Registry {
-  list(): Promise<Recipe[]>;
+  readonly source: RecipeSource;
+  list(): Promise<RecipeSummary[]>;
   get(name: string): Promise<Recipe>;
-  search(query: string): Promise<Recipe[]>;
-  scan(): Promise<RegistryScan>;
+  search(query: string): Promise<RecipeSummary[]>;
+  fetchPackage(name: string): Promise<RecipePackage>;
 }
 
 export type RecipeValidation =
-  { ok: true; recipe: Recipe } | { ok: false; errors: RecipeIssue[] };
+  | { ok: true; recipe: Recipe }
+  | { ok: false; errors: RecipeIssue[] };
 
-export type InstallOptions = RegistryOptions & {
+export type InstallOptions = {
+  registry: Registry;
   projectDir?: string;
 };
 
 export type InstalledRecipe = {
   name: string;
   version: string;
-  source: string;
+  source: RecipeSource;
   integrity: string;
   destination: string;
 };

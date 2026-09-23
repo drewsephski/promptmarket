@@ -1,0 +1,3 @@
+[mcp_servers.promptmarket]
+command = "node"
+args = ["packages/mcp/bin/promptmarket-mcp.js"]

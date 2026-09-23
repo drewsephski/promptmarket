@@ -1,8 +1,10 @@
+import { createServer } from "node:http";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { run, type CliIo } from "../src/program.js";
+import { FileRegistry, handleRegistryRequest } from "@promptmarket/registry";
+import { createRegistry, run, type CliIo } from "../src/program.js";
 
 const recipesDir = path.resolve(import.meta.dirname, "../../../recipes");
 const fixture = path.join(recipesDir, "github-pr-review");
@@ -187,5 +189,111 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(lock.recipes["github-pr-review"]?.integrity).toBe(
       payload.installed.integrity,
     );
+  });
+
+  test("defaults to the hosted registry and lets --recipes win", function choosesRegistry() {
+    expect(createRegistry({}).source).toEqual({
+      type: "registry",
+      url: "https://promptmarket.sh/api/registry/v1",
+    });
+    expect(createRegistry({ recipes: recipesDir }).source).toEqual({
+      type: "file",
+    });
+    expect(
+      createRegistry({
+        recipes: recipesDir,
+        registry: "http://127.0.0.1:9/api/registry/v1",
+      }).source,
+    ).toEqual({ type: "file" });
+    expect(
+      createRegistry({ registry: "http://127.0.0.1:9/api/registry/v1" }).source,
+    ).toEqual({
+      type: "registry",
+      url: "http://127.0.0.1:9/api/registry/v1",
+    });
+  });
+
+  test("add --registry installs into a project with no local recipes", async function addsFromRegistry() {
+    const projectDir = await mkdtemp(
+      path.join(os.tmpdir(), "promptmarket-remote-cli-"),
+    );
+    tempDirs.push(projectDir);
+    const registry = new FileRegistry({ recipesDir });
+    const server = createServer(function handle(request, response) {
+      const host = request.headers.host ?? "127.0.0.1";
+      const url = `http://${host}${request.url ?? "/"}`;
+      handleRegistryRequest(registry, new Request(url, { method: request.method }))
+        .then(async function write(result) {
+          const body = Buffer.from(await result.arrayBuffer());
+          response.writeHead(result.status, {
+            "content-type": "application/json",
+          });
+          response.end(body);
+        })
+        .catch(function fail(error: unknown) {
+          response.writeHead(500);
+          response.end(error instanceof Error ? error.message : "error");
+        });
+    });
+    await new Promise<void>(function listen(resolve) {
+      server.listen(0, "127.0.0.1", function listening() {
+        resolve();
+      });
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Registry test server did not bind a port");
+    }
+
+    try {
+      const io = captureIo();
+      const exitCode = await run(
+        [
+          "node",
+          "promptmarket",
+          "add",
+          "github-pr-review",
+          "--json",
+          "--registry",
+          `http://127.0.0.1:${address.port}/api/registry/v1`,
+          "--project",
+          projectDir,
+        ],
+        io,
+      );
+      const skill = await readFile(
+        path.join(
+          projectDir,
+          ".agents",
+          "skills",
+          "github-pr-review",
+          "SKILL.md",
+        ),
+        "utf8",
+      );
+      const lock = JSON.parse(
+        await readFile(path.join(projectDir, "promptmarket.lock"), "utf8"),
+      ) as {
+        recipes: Record<string, { source: { type: string; url?: string } }>;
+      };
+
+      expect(exitCode).toBe(0);
+      expect(io.err()).toBe("");
+      expect(skill).toContain("name: github-pr-review");
+      expect(lock.recipes["github-pr-review"]?.source).toEqual({
+        type: "registry",
+        url: `http://127.0.0.1:${address.port}/api/registry/v1`,
+      });
+    } finally {
+      await new Promise<void>(function close(resolve, reject) {
+        server.close(function closed(error) {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
   });
 });

@@ -23,6 +23,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@modelcontextprotocol/server':
+        specifier: 2.1.0
+        version: 2.1.0
+      '@promptmarket/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
+      '@promptmarket/registry':
+        specifier: workspace:*
+        version: link:../../packages/registry
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui

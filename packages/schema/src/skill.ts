@@ -18,3 +18,13 @@ export const SkillFrontmatterSchema = z
   .strict();
 
 export type SkillFrontmatter = z.infer<typeof SkillFrontmatterSchema>;
+
+export const SkillDocumentSchema = z
+  .object({
+    name: SkillNameSchema,
+    description: z.string().min(1).max(1024),
+    body: z.string(),
+  })
+  .strict();
+
+export type SkillDocument = z.infer<typeof SkillDocumentSchema>;

@@ -1,20 +1,26 @@
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { SkillNameSchema } from "@promptmarket/schema";
+import { SkillNameSchema, type RecipeSource } from "@promptmarket/schema";
+import { digestFiles } from "./digest.js";
 import {
   InvalidRecipeError,
   InvalidRecipeNameError,
   RecipeNotFoundError,
 } from "./errors.js";
+import { readRecipeFiles } from "./recipe-files.js";
 import type {
   Recipe,
+  RecipePackage,
+  RecipeSummary,
   Registry,
   RegistryOptions,
   RegistryScan,
 } from "./types.js";
 import { validateRecipe } from "./validate-recipe.js";
 
-export const FILE_REGISTRY_SOURCE = "file";
+export const FILE_RECIPE_SOURCE = {
+  type: "file",
+} as const satisfies RecipeSource;
 
 async function directoryExists(directory: string): Promise<boolean> {
   try {
@@ -60,6 +66,16 @@ function compareNames(left: string, right: string): number {
   return 0;
 }
 
+export function summarizeRecipe(recipe: Recipe): RecipeSummary {
+  return {
+    name: recipe.manifest.name,
+    version: recipe.manifest.version,
+    description: recipe.skill.description,
+    tags: recipe.manifest.tags,
+    compatibility: recipe.manifest.compatibility,
+  };
+}
+
 export async function scanRecipes(
   options?: RegistryOptions,
 ): Promise<RegistryScan> {
@@ -81,19 +97,12 @@ export async function scanRecipes(
   const invalid: RegistryScan["invalid"] = [];
   for (const entry of directories) {
     const recipePath = path.join(recipesDir, entry.name);
-    const manifestPath = path.join(recipePath, "promptmarket.yaml");
-    try {
-      const info = await stat(manifestPath);
-      if (!info.isFile()) {
-        continue;
-      }
-    } catch {
-      continue;
-    }
-
     const result = await validateRecipe(recipePath);
     if (!result.ok) {
-      invalid.push({ path: recipePath, errors: result.errors });
+      invalid.push({
+        path: recipePath,
+        errors: result.errors,
+      });
       continue;
     }
     recipes.push(result.recipe);
@@ -104,9 +113,9 @@ export async function scanRecipes(
 
 export async function listRecipes(
   options?: RegistryOptions,
-): Promise<Recipe[]> {
+): Promise<RecipeSummary[]> {
   const scan = await scanRecipes(options);
-  return scan.recipes;
+  return scan.recipes.map(summarizeRecipe);
 }
 
 export async function getRecipe(
@@ -149,9 +158,8 @@ function recipeHaystack(recipe: Recipe): string {
 export async function searchRecipes(
   query: string,
   options?: RegistryOptions,
-): Promise<Recipe[]> {
+): Promise<RecipeSummary[]> {
   const scan = await scanRecipes(options);
-  const recipes = scan.recipes;
   const tokens = query
     .toLowerCase()
     .split(/\s+/)
@@ -159,20 +167,36 @@ export async function searchRecipes(
       return token.length > 0;
     });
 
-  return recipes.filter(function matchesQuery(recipe) {
-    const haystack = recipeHaystack(recipe);
-    return tokens.every(function tokenInHaystack(token) {
-      return haystack.includes(token);
-    });
-  });
+  return scan.recipes
+    .filter(function matchesQuery(recipe) {
+      const haystack = recipeHaystack(recipe);
+      return tokens.every(function tokenInHaystack(token) {
+        return haystack.includes(token);
+      });
+    })
+    .map(summarizeRecipe);
+}
+
+export async function fetchRecipePackage(
+  name: string,
+  options?: RegistryOptions,
+): Promise<RecipePackage> {
+  const recipe = await getRecipe(name, options);
+  const recipesDir = await resolveRecipesDir(options);
+  const files = await readRecipeFiles(path.join(recipesDir, recipe.manifest.name));
+  return {
+    recipe,
+    files,
+    integrity: digestFiles(files),
+  };
 }
 
 export class FileRegistry implements Registry {
-  readonly source = FILE_REGISTRY_SOURCE;
+  readonly source = FILE_RECIPE_SOURCE;
 
   constructor(private readonly options?: RegistryOptions) {}
 
-  list(): Promise<Recipe[]> {
+  list(): Promise<RecipeSummary[]> {
     return listRecipes(this.options);
   }
 
@@ -180,8 +204,12 @@ export class FileRegistry implements Registry {
     return getRecipe(name, this.options);
   }
 
-  search(query: string): Promise<Recipe[]> {
+  search(query: string): Promise<RecipeSummary[]> {
     return searchRecipes(query, this.options);
+  }
+
+  fetchPackage(name: string): Promise<RecipePackage> {
+    return fetchRecipePackage(name, this.options);
   }
 
   scan(): Promise<RegistryScan> {

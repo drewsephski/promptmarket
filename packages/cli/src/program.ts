@@ -1,9 +1,11 @@
 import { Command, CommanderError } from "commander";
 import {
   FileRegistry,
+  RemoteRegistry,
   installRecipe,
   validateRecipe,
   type Recipe,
+  type Registry,
 } from "@promptmarket/registry";
 
 export type CliIo = {
@@ -28,11 +30,19 @@ function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-function createRegistry(options: { recipes?: string }): FileRegistry {
-  if (!options.recipes) {
-    return new FileRegistry();
+type RegistryFlags = {
+  recipes?: string;
+  registry?: string;
+};
+
+export function createRegistry(options: RegistryFlags): Registry {
+  if (options.recipes) {
+    return new FileRegistry({ recipesDir: options.recipes });
   }
-  return new FileRegistry({ recipesDir: options.recipes });
+  if (options.registry) {
+    return new RemoteRegistry(options.registry);
+  }
+  return new RemoteRegistry();
 }
 
 function errorMessage(error: unknown): string {
@@ -42,13 +52,19 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-function summarizeRecipe(recipe: Recipe) {
+function summarizeRecipe(recipe: {
+  name: string;
+  version: string;
+  description: string;
+  tags: string[];
+  compatibility: Recipe["manifest"]["compatibility"];
+}) {
   return {
-    name: recipe.manifest.name,
-    version: recipe.manifest.version,
-    description: recipe.skill.description,
-    tags: recipe.manifest.tags,
-    path: recipe.path,
+    name: recipe.name,
+    version: recipe.version,
+    description: recipe.description,
+    tags: recipe.tags,
+    compatibility: recipe.compatibility,
   };
 }
 
@@ -63,7 +79,6 @@ function inspectRecipe(recipe: Recipe) {
     capabilities: recipe.manifest.capabilities,
     entrypoint: recipe.manifest.entrypoint,
     tags: recipe.manifest.tags,
-    path: recipe.path,
     skill: recipe.skill,
   };
 }
@@ -104,10 +119,11 @@ export function createProgram(io: CliIo, state: CommandState): Command {
     .description("Search recipes by name, description, and tags")
     .argument("<query>", "Search query")
     .option("--json", "Print deterministic JSON to stdout")
-    .option("--recipes <dir>", "Recipes directory")
+    .option("--recipes <dir>", "Read recipes from a local directory")
+    .option("--registry <url>", "Registry API base URL")
     .action(async function searchAction(
       query: string,
-      options: { json?: boolean; recipes?: string },
+      options: { json?: boolean; recipes?: string; registry?: string },
     ) {
       try {
         const recipes = await createRegistry(options).search(query);
@@ -135,10 +151,11 @@ export function createProgram(io: CliIo, state: CommandState): Command {
     .description("Inspect one recipe")
     .argument("<name>", "Recipe name")
     .option("--json", "Print deterministic JSON to stdout")
-    .option("--recipes <dir>", "Recipes directory")
+    .option("--recipes <dir>", "Read recipes from a local directory")
+    .option("--registry <url>", "Registry API base URL")
     .action(async function infoAction(
       name: string,
-      options: { json?: boolean; recipes?: string },
+      options: { json?: boolean; recipes?: string; registry?: string },
     ) {
       try {
         const recipe = await createRegistry(options).get(name);
@@ -151,7 +168,6 @@ export function createProgram(io: CliIo, state: CommandState): Command {
             `name: ${recipe.manifest.name}`,
             `version: ${recipe.manifest.version}`,
             `description: ${recipe.skill.description}`,
-            `path: ${recipe.path}`,
             "",
           ].join("\n"),
         );
@@ -206,15 +222,21 @@ export function createProgram(io: CliIo, state: CommandState): Command {
     )
     .argument("<name>", "Recipe name")
     .option("--json", "Print deterministic JSON to stdout")
-    .option("--recipes <dir>", "Recipes directory")
+    .option("--recipes <dir>", "Read recipes from a local directory")
+    .option("--registry <url>", "Registry API base URL")
     .option("--project <dir>", "Project directory to install into")
     .action(async function addAction(
       name: string,
-      options: { json?: boolean; recipes?: string; project?: string },
+      options: {
+        json?: boolean;
+        recipes?: string;
+        registry?: string;
+        project?: string;
+      },
     ) {
       try {
         const installed = await installRecipe(name, {
-          recipesDir: options.recipes,
+          registry: createRegistry(options),
           projectDir: options.project,
         });
         if (options.json) {

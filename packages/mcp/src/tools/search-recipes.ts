@@ -4,7 +4,7 @@ import { z } from "zod";
 import { toolError, toolResult } from "../tool-result.js";
 
 const inputSchema = z.object({
-  query: z.string(),
+  query: z.string().describe("Search text. An empty query returns every recipe."),
 });
 
 const outputSchema = z.object({
@@ -33,7 +33,7 @@ export function registerSearchRecipes(
     {
       title: "Search recipes",
       description:
-        "Search PromptMarket recipes by name, description, and tags. Returns summaries, not full instructions.",
+        "Search PromptMarket recipes by name, description, and tags. An empty query returns every recipe. Returns summaries, not full instructions.",
       inputSchema,
       outputSchema,
       annotations,
@@ -44,10 +44,10 @@ export function registerSearchRecipes(
         return toolResult({
           recipes: recipes.map(function summarize(recipe) {
             return {
-              name: recipe.manifest.name,
-              version: recipe.manifest.version,
-              description: recipe.skill.description,
-              tags: recipe.manifest.tags,
+              name: recipe.name,
+              version: recipe.version,
+              description: recipe.description,
+              tags: recipe.tags,
             };
           }),
         });

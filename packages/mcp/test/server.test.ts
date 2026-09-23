@@ -2,13 +2,13 @@ import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import {
   RecipeNotFoundError,
   type Recipe,
+  type RecipeSummary,
   type Registry,
 } from "@promptmarket/registry";
 import { afterEach, describe, expect, test } from "vitest";
 import { createPromptMarketServer } from "../src/server.js";
 
 const recipe: Recipe = {
-  path: "/recipes/github-pr-review",
   manifest: {
     schemaVersion: 1,
     name: "github-pr-review",
@@ -32,10 +32,21 @@ const recipe: Recipe = {
   },
 };
 
+function summaryOf(item: Recipe): RecipeSummary {
+  return {
+    name: item.manifest.name,
+    version: item.manifest.version,
+    description: item.skill.description,
+    tags: item.manifest.tags,
+    compatibility: item.manifest.compatibility,
+  };
+}
+
 function registryWith(recipes: Recipe[]): Registry {
   return {
+    source: { type: "file" },
     async list() {
-      return recipes;
+      return recipes.map(summaryOf);
     },
     async get(name: string) {
       const found = recipes.find(function matchesName(item) {
@@ -53,21 +64,28 @@ function registryWith(recipes: Recipe[]): Registry {
         .filter(function nonEmpty(token) {
           return token.length > 0;
         });
-      return recipes.filter(function matchesQuery(item) {
-        const haystack = [
-          item.manifest.name,
-          item.skill.description,
-          ...item.manifest.tags,
-        ]
-          .join("\n")
-          .toLowerCase();
-        return tokens.every(function tokenInHaystack(token) {
-          return haystack.includes(token);
-        });
-      });
+      return recipes
+        .filter(function matchesQuery(item) {
+          const haystack = [
+            item.manifest.name,
+            item.skill.description,
+            ...item.manifest.tags,
+          ]
+            .join("\n")
+            .toLowerCase();
+          return tokens.every(function tokenInHaystack(token) {
+            return haystack.includes(token);
+          });
+        })
+        .map(summaryOf);
     },
-    async scan() {
-      return { recipes, invalid: [] };
+    async fetchPackage(name: string) {
+      const found = await this.get(name);
+      return {
+        recipe: found,
+        files: [],
+        integrity: "sha256-eA==",
+      };
     },
   };
 }
@@ -161,12 +179,15 @@ describe("promptmarket mcp", function promptmarketMcp() {
       name: "github-pr-review",
       version: "0.1.0",
       description: recipe.skill.description,
+      author: { name: "PromptMarket" },
+      compatibility: ["cursor", "claude-code", "codex", "generic"],
       requires: { mcp: ["io.github.github/github-mcp-server"] },
       capabilities: {
         filesystem: "read",
         network: ["github.com"],
         shell: false,
       },
+      tags: ["github", "pull-request", "code-review"],
     });
     expect(JSON.stringify(result.structuredContent)).not.toContain(
       "# GitHub Pull Request Review",
@@ -188,6 +209,19 @@ describe("promptmarket mcp", function promptmarketMcp() {
         description: recipe.skill.description,
         body: "# GitHub Pull Request Review\n",
       },
+    });
+  });
+
+  test("search_recipes treats an empty query as every recipe", async function listsOnEmptyQuery() {
+    const client = await connect(registryWith([recipe]));
+    const result = (await client.callTool({
+      name: "search_recipes",
+      arguments: { query: "" },
+    })) as ToolResult;
+
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toMatchObject({
+      recipes: [{ name: "github-pr-review" }],
     });
   });
 

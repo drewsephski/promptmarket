@@ -1,21 +1,15 @@
-import { createHash } from "node:crypto";
-import {
-  copyFile,
-  mkdir,
-  open,
-  readdir,
-  readFile,
-  rename,
-  rm,
-} from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import {
   LockfileSchema,
   type Lockfile,
   type LockfileEntry,
+  type RecipeSource,
 } from "@promptmarket/schema";
-import { FileRegistry } from "./file-registry.js";
-import type { InstallOptions, InstalledRecipe } from "./types.js";
+import { digestFiles } from "./digest.js";
+import { IntegrityError } from "./errors.js";
+import { normalizeRecipeFiles, writeRecipeFiles } from "./recipe-files.js";
+import type { InstallOptions, InstalledRecipe, Registry } from "./types.js";
 
 function lockfilePath(projectDir: string): string {
   return path.join(projectDir, "promptmarket.lock");
@@ -23,58 +17,6 @@ function lockfilePath(projectDir: string): string {
 
 function isNotFound(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-
-async function collectFiles(directory: string): Promise<string[]> {
-  const files: string[] = [];
-
-  async function walk(current: string): Promise<void> {
-    const entries = await readdir(current, { withFileTypes: true });
-    const sorted = [...entries].sort(function byName(left, right) {
-      if (left.name < right.name) {
-        return -1;
-      }
-      if (left.name > right.name) {
-        return 1;
-      }
-      return 0;
-    });
-
-    for (const entry of sorted) {
-      if (entry.name === ".DS_Store") {
-        continue;
-      }
-      const fullPath = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        await walk(fullPath);
-        continue;
-      }
-      if (entry.isFile()) {
-        files.push(fullPath);
-      }
-    }
-  }
-
-  await walk(directory);
-  return files;
-}
-
-function toPosix(relativePath: string): string {
-  return relativePath.split(path.sep).join("/");
-}
-
-export async function digestRecipe(recipePath: string): Promise<string> {
-  const files = await collectFiles(recipePath);
-  const hash = createHash("sha256");
-  for (const file of files) {
-    const relativePath = toPosix(path.relative(recipePath, file));
-    const contents = await readFile(file);
-    hash.update(relativePath);
-    hash.update("\0");
-    hash.update(contents);
-    hash.update("\0");
-  }
-  return `sha256-${hash.digest("base64")}`;
 }
 
 async function readLockfile(projectDir: string): Promise<Lockfile> {
@@ -118,6 +60,13 @@ async function readLockfile(projectDir: string): Promise<Lockfile> {
   return result.data;
 }
 
+function lockfileSource(source: RecipeSource): RecipeSource {
+  if (source.type === "file") {
+    return { type: "file" };
+  }
+  return { type: "registry", url: source.url };
+}
+
 function serializeLockfile(lockfile: Lockfile): string {
   const names = Object.keys(lockfile.recipes).sort(
     function byName(left, right) {
@@ -139,7 +88,7 @@ function serializeLockfile(lockfile: Lockfile): string {
     recipes[name] = {
       name: entry.name,
       version: entry.version,
-      source: entry.source,
+      source: lockfileSource(entry.source),
       integrity: entry.integrity,
     };
   }
@@ -167,38 +116,36 @@ async function writeLockfile(
   await rename(temporary, target);
 }
 
-async function copyRecipe(source: string, destination: string): Promise<void> {
-  await rm(destination, { recursive: true, force: true });
-  await mkdir(destination, { recursive: true });
-  const files = await collectFiles(source);
-  for (const file of files) {
-    const relativePath = path.relative(source, file);
-    const target = path.join(destination, relativePath);
-    await mkdir(path.dirname(target), { recursive: true });
-    await copyFile(file, target);
-  }
-}
-
 export async function installRecipe(
   name: string,
-  options?: InstallOptions,
+  options: InstallOptions,
 ): Promise<InstalledRecipe> {
-  const projectDir = path.resolve(options?.projectDir ?? process.cwd());
-  const registry = new FileRegistry(options);
+  const projectDir = path.resolve(options.projectDir ?? process.cwd());
+  const registry: Registry = options.registry;
   const lockfile = await readLockfile(projectDir);
-  const recipe = await registry.get(name);
-  const integrity = await digestRecipe(recipe.path);
+  const fetched = await registry.fetchPackage(name);
+  if (fetched.recipe.manifest.name !== name) {
+    throw new Error(
+      `Registry returned "${fetched.recipe.manifest.name}" for "${name}"`,
+    );
+  }
+  const files = normalizeRecipeFiles(fetched.files);
+  const integrity = digestFiles(files);
+  if (integrity !== fetched.integrity) {
+    throw new IntegrityError(fetched.integrity, integrity);
+  }
+
   const destination = path.join(
     projectDir,
     ".agents",
     "skills",
-    recipe.manifest.name,
+    fetched.recipe.manifest.name,
   );
-  await copyRecipe(recipe.path, destination);
+  await writeRecipeFiles(destination, files);
 
   const entry: LockfileEntry = {
-    name: recipe.manifest.name,
-    version: recipe.manifest.version,
+    name: fetched.recipe.manifest.name,
+    version: fetched.recipe.manifest.version,
     source: registry.source,
     integrity,
   };
