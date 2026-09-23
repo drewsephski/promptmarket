@@ -73,6 +73,39 @@ export const RecipePackageResponseSchema = z
   })
   .strict();
 
+export const RecipeVersionSummarySchema = z
+  .object({
+    version: SemVerSchema,
+    integrity: IntegritySchema,
+  })
+  .strict();
+
+export const RecipeVersionListResponseSchema = z
+  .object({
+    name: SkillNameSchema,
+    latest: SemVerSchema,
+    versions: z.array(RecipeVersionSummarySchema),
+  })
+  .strict()
+  .superRefine(function validateVersionList(value, ctx) {
+    const seen = new Set<string>();
+    for (const item of value.versions) {
+      if (seen.has(item.version)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Duplicate version ${item.version}`,
+        });
+      }
+      seen.add(item.version);
+    }
+    if (!seen.has(value.latest)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "latest is not listed in versions",
+      });
+    }
+  });
+
 export const RegistryErrorSchema = z
   .object({
     error: z.string(),
@@ -84,3 +117,7 @@ export type RecipeListResponse = z.infer<typeof RecipeListResponseSchema>;
 export type RecipeDetail = z.infer<typeof RecipeDetailSchema>;
 export type RecipePackageFileResponse = z.infer<typeof RecipePackageFileSchema>;
 export type RecipePackageResponse = z.infer<typeof RecipePackageResponseSchema>;
+export type RecipeVersionSummary = z.infer<typeof RecipeVersionSummarySchema>;
+export type RecipeVersionListResponse = z.infer<
+  typeof RecipeVersionListResponseSchema
+>;

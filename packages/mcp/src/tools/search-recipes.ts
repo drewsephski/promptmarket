@@ -4,7 +4,9 @@ import { z } from "zod";
 import { toolError, toolResult } from "../tool-result.js";
 
 const inputSchema = z.object({
-  query: z.string().describe("Search text. An empty query returns every recipe."),
+  query: z
+    .string()
+    .describe("Search text. An empty query returns every recipe."),
 });
 
 const outputSchema = z.object({

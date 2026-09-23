@@ -1,0 +1,29 @@
+schemaVersion: 1
+
+name: nextjs-debug-production-build
+version: 0.1.0
+
+author:
+  name: PromptMarket
+  url: https://github.com/drewsephski/promptmarket/tree/main/recipes/nextjs-debug-production-build/0.1.0
+
+compatibility:
+  - cursor
+  - claude-code
+  - codex
+  - generic
+
+requires:
+  mcp: []
+
+capabilities:
+  filesystem: write
+  network: []
+  shell: true
+
+entrypoint: SKILL.md
+
+tags:
+  - nextjs
+  - build
+  - debugging

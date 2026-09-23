@@ -2,7 +2,10 @@ import { Command, CommanderError } from "commander";
 import {
   FileRegistry,
   RemoteRegistry,
+  findOutdatedRecipes,
+  installFromLockfile,
   installRecipe,
+  parseRecipeRef,
   validateRecipe,
   type Recipe,
   type Registry,
@@ -103,7 +106,7 @@ export function createProgram(io: CliIo, state: CommandState): Command {
   program
     .name("promptmarket")
     .description("Search, inspect, validate, and install PromptMarket recipes")
-    .version("0.1.0")
+    .version("0.2.0")
     .configureOutput({
       writeOut: function writeOut(message: string) {
         io.stdout(message);
@@ -148,8 +151,8 @@ export function createProgram(io: CliIo, state: CommandState): Command {
 
   program
     .command("info")
-    .description("Inspect one recipe")
-    .argument("<name>", "Recipe name")
+    .description("Inspect one recipe, optionally at an exact version")
+    .argument("<recipe>", "Recipe name or name@version")
     .option("--json", "Print deterministic JSON to stdout")
     .option("--recipes <dir>", "Read recipes from a local directory")
     .option("--registry <url>", "Registry API base URL")
@@ -158,7 +161,8 @@ export function createProgram(io: CliIo, state: CommandState): Command {
       options: { json?: boolean; recipes?: string; registry?: string },
     ) {
       try {
-        const recipe = await createRegistry(options).get(name);
+        const ref = parseRecipeRef(name);
+        const recipe = await createRegistry(options).get(ref.name, ref.version);
         if (options.json) {
           io.stdout(json({ ok: true, recipe: inspectRecipe(recipe) }));
           return;
@@ -220,7 +224,7 @@ export function createProgram(io: CliIo, state: CommandState): Command {
     .description(
       "Install a recipe into .agents/skills and record it in promptmarket.lock",
     )
-    .argument("<name>", "Recipe name")
+    .argument("<recipe>", "Recipe name or name@version")
     .option("--json", "Print deterministic JSON to stdout")
     .option("--recipes <dir>", "Read recipes from a local directory")
     .option("--registry <url>", "Registry API base URL")
@@ -246,6 +250,112 @@ export function createProgram(io: CliIo, state: CommandState): Command {
         io.stdout(
           `installed ${installed.name}@${installed.version}\n${installed.destination}\n`,
         );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("install")
+    .description(
+      "Install every recipe pinned in promptmarket.lock without changing the lockfile",
+    )
+    .option("--json", "Print deterministic JSON to stdout")
+    .option(
+      "--recipes <dir>",
+      "Read file-sourced recipes from a local directory",
+    )
+    .option(
+      "--project <dir>",
+      "Project directory that contains promptmarket.lock",
+    )
+    .action(async function installAction(options: {
+      json?: boolean;
+      recipes?: string;
+      project?: string;
+    }) {
+      try {
+        const installed = await installFromLockfile({
+          projectDir: options.project,
+          recipesDir: options.recipes,
+        });
+        if (options.json) {
+          io.stdout(json({ ok: true, installed }));
+          return;
+        }
+        if (installed.length === 0) {
+          io.stdout("Nothing to install.\n");
+          return;
+        }
+        for (const recipe of installed) {
+          io.stdout(
+            `installed ${recipe.name}@${recipe.version}\n${recipe.destination}\n`,
+          );
+        }
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("versions")
+    .description("List immutable versions of a recipe")
+    .argument("<name>", "Recipe name")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--recipes <dir>", "Read recipes from a local directory")
+    .option("--registry <url>", "Registry API base URL")
+    .action(async function versionsAction(
+      name: string,
+      options: { json?: boolean; recipes?: string; registry?: string },
+    ) {
+      try {
+        const listed = await createRegistry(options).listVersions(name);
+        if (options.json) {
+          io.stdout(json({ ok: true, ...listed }));
+          return;
+        }
+        io.stdout(`${listed.name}\nlatest: ${listed.latest}\n`);
+        for (const version of listed.versions) {
+          io.stdout(`${version.version}\t${version.integrity}\n`);
+        }
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("outdated")
+    .description("Show locked recipes that are older than the registry latest")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option(
+      "--recipes <dir>",
+      "Read file-sourced recipes from a local directory",
+    )
+    .option(
+      "--project <dir>",
+      "Project directory that contains promptmarket.lock",
+    )
+    .action(async function outdatedAction(options: {
+      json?: boolean;
+      recipes?: string;
+      project?: string;
+    }) {
+      try {
+        const outdated = await findOutdatedRecipes({
+          projectDir: options.project,
+          recipesDir: options.recipes,
+        });
+        if (options.json) {
+          io.stdout(json({ ok: true, outdated }));
+          return;
+        }
+        if (outdated.length === 0) {
+          io.stdout("All locked recipes are current.\n");
+          return;
+        }
+        for (const recipe of outdated) {
+          io.stdout(`${recipe.name}\t${recipe.version}\t${recipe.latest}\n`);
+        }
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
       }

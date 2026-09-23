@@ -8,8 +8,7 @@ import { issuesFromZod } from "./issues.js";
 import type { RecipeIssue } from "./types.js";
 
 export type ParseManifestResult =
-  | { ok: true; manifest: RecipeManifest }
-  | { ok: false; errors: RecipeIssue[] };
+  { ok: true; manifest: RecipeManifest } | { ok: false; errors: RecipeIssue[] };
 
 export function parseManifestText(text: string): ParseManifestResult {
   let parsed: unknown;

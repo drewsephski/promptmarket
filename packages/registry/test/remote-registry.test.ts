@@ -81,7 +81,7 @@ describe("remote registry", function remoteRegistry() {
     expect(summaries).toEqual([
       {
         name: "github-pr-review",
-        version: "0.1.0",
+        version: "0.2.0",
         description: recipe.skill.description,
         tags: ["github", "pull-request", "code-review"],
         compatibility: ["cursor", "claude-code", "codex", "generic"],
@@ -94,10 +94,14 @@ describe("remote registry", function remoteRegistry() {
       pkg.files.map(function pathOf(file) {
         return file.path;
       }),
-    ).toEqual(["SKILL.md", "promptmarket.yaml"]);
+    ).toEqual([
+      "SKILL.md",
+      "promptmarket.yaml",
+      "references/review-checklist.md",
+    ]);
     expect(body).toMatchObject({
       name: "github-pr-review",
-      version: "0.1.0",
+      version: "0.2.0",
       description: recipe.skill.description,
       author: { name: "PromptMarket" },
       compatibility: ["cursor", "claude-code", "codex", "generic"],
@@ -128,6 +132,7 @@ describe("remote registry", function remoteRegistry() {
     ).toEqual([
       { path: "SKILL.md", encoding: "utf8" },
       { path: "promptmarket.yaml", encoding: "utf8" },
+      { path: "references/review-checklist.md", encoding: "utf8" },
     ]);
   });
 
@@ -159,7 +164,7 @@ describe("remote registry", function remoteRegistry() {
     expect(installed.source).toEqual({ type: "registry", url: registryBase });
     expect(lock.recipes["github-pr-review"]).toEqual({
       name: "github-pr-review",
-      version: "0.1.0",
+      version: "0.2.0",
       source: { type: "registry", url: registryBase },
       integrity: installed.integrity,
     });
@@ -447,5 +452,102 @@ describe("remote registry", function remoteRegistry() {
       throw new Error("registry request did not set an abort signal");
     }
     expect(captured.signal.aborted).toBe(false);
+  });
+
+  test("fetches an exact version and lists history without caching latest as immutable", async function fetchesExactVersion() {
+    const fileRegistry = new FileRegistry({ recipesDir });
+    const remote = new RemoteRegistry(
+      registryBase,
+      registryFetch(fileRegistry),
+    );
+    const historical = await remote.get("github-pr-review", "0.1.0");
+    const pkg = await remote.fetchPackage("github-pr-review", "0.1.0");
+    const versions = await remote.listVersions("github-pr-review");
+    const latestResponse = await handleRegistryRequest(
+      fileRegistry,
+      new Request(`${registryBase}/recipes/github-pr-review`),
+    );
+    const searchResponse = await handleRegistryRequest(
+      fileRegistry,
+      new Request(`${registryBase}/recipes?q=review`),
+    );
+    const exactResponse = await handleRegistryRequest(
+      fileRegistry,
+      new Request(
+        `${registryBase}/recipes/github-pr-review/versions/0.1.0/package`,
+      ),
+    );
+    const missing = await handleRegistryRequest(
+      fileRegistry,
+      new Request(`${registryBase}/recipes/github-pr-review/versions/9.9.9`),
+    );
+
+    expect(historical.manifest.version).toBe("0.1.0");
+    expect(pkg.recipe.manifest.version).toBe("0.1.0");
+    expect(pkg.integrity).toBe(
+      versions.versions.find(function historicalVersion(item) {
+        return item.version === "0.1.0";
+      })?.integrity,
+    );
+    expect(versions.latest).toBe("0.2.0");
+    expect(latestResponse.headers.get("cache-control")).not.toContain(
+      "immutable",
+    );
+    expect(searchResponse.headers.get("cache-control")).not.toContain(
+      "immutable",
+    );
+    expect(exactResponse.headers.get("cache-control")).toContain("immutable");
+    expect(exactResponse.status).toBe(200);
+    expect(missing.status).toBe(404);
+
+    await expect(
+      remote.fetchPackage("github-pr-review", "9.9.9"),
+    ).rejects.toThrow(/9\.9\.9/);
+    await expect(remote.get("github-pr-review", "banana")).rejects.toThrow(
+      /Invalid recipe version/,
+    );
+  });
+
+  test("rejects a malformed version list and a substituted version", async function rejectsBadVersions() {
+    const malformed = new RemoteRegistry(
+      registryBase,
+      async function fetchBad() {
+        return Response.json({
+          name: "github-pr-review",
+          latest: "0.2.0",
+          versions: [{ version: "0.2.0" }],
+        });
+      },
+    );
+    await expect(malformed.listVersions("github-pr-review")).rejects.toThrow(
+      /Invalid registry response/,
+    );
+
+    const substituted = new RemoteRegistry(
+      registryBase,
+      async function fetchSubstituted() {
+        return Response.json({
+          schemaVersion: 1,
+          name: "github-pr-review",
+          version: "0.2.0",
+          description: "Review GitHub pull requests.",
+          author: { name: "PromptMarket" },
+          compatibility: ["generic"],
+          requires: { mcp: [] },
+          capabilities: { filesystem: "none", network: [], shell: false },
+          entrypoint: "SKILL.md",
+          tags: [],
+          integrity: "sha256-eA==",
+          skill: {
+            name: "github-pr-review",
+            description: "Review GitHub pull requests.",
+            body: "# Review\n",
+          },
+        });
+      },
+    );
+    await expect(substituted.get("github-pr-review", "0.1.0")).rejects.toThrow(
+      /0\.2\.0/,
+    );
   });
 });

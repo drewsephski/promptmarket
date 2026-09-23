@@ -3,16 +3,21 @@ import {
   RecipeListResponseSchema,
   RecipeManifestSchema,
   RecipePackageResponseSchema,
+  RecipeVersionListResponseSchema,
   RegistryErrorSchema,
+  SemVerSchema,
   SkillNameSchema,
   type RecipeSource,
+  type RecipeVersionListResponse,
 } from "@promptmarket/schema";
 import { digestFiles } from "./digest.js";
 import {
   IntegrityError,
   InvalidRecipeError,
   InvalidRecipeNameError,
+  InvalidRecipeVersionError,
   RecipeNotFoundError,
+  RecipeVersionNotFoundError,
   RegistryLimitError,
 } from "./errors.js";
 import {
@@ -78,11 +83,10 @@ export class RemoteRegistry implements Registry {
     return this.readList(null);
   }
 
-  async get(name: string): Promise<Recipe> {
+  async get(name: string, version?: string): Promise<Recipe> {
     const recipeName = parseRecipeName(name);
-    const payload = await this.request(
-      `/recipes/${encodeURIComponent(recipeName)}`,
-    );
+    const recipeVersion = parseOptionalVersion(version);
+    const payload = await this.request(recipePath(recipeName, recipeVersion));
     const parsed = RecipeDetailSchema.safeParse(payload);
     if (!parsed.success) {
       throw new Error(`Invalid registry response: ${zodMessage(parsed.error)}`);
@@ -98,6 +102,11 @@ export class RemoteRegistry implements Registry {
     if (parsed.data.description !== parsed.data.skill.description) {
       throw new Error(
         "Invalid registry response: description does not match SKILL.md",
+      );
+    }
+    if (recipeVersion && parsed.data.version !== recipeVersion) {
+      throw new Error(
+        `Registry returned version "${parsed.data.version}" for requested version "${recipeVersion}"`,
       );
     }
 
@@ -123,10 +132,11 @@ export class RemoteRegistry implements Registry {
     return this.readList(query);
   }
 
-  async fetchPackage(name: string): Promise<RecipePackage> {
+  async fetchPackage(name: string, version?: string): Promise<RecipePackage> {
     const recipeName = parseRecipeName(name);
+    const recipeVersion = parseOptionalVersion(version);
     const payload = await this.request(
-      `/recipes/${encodeURIComponent(recipeName)}/package`,
+      `${recipePath(recipeName, recipeVersion)}/package`,
     );
     const parsed = RecipePackageResponseSchema.safeParse(payload);
     if (!parsed.success) {
@@ -135,6 +145,11 @@ export class RemoteRegistry implements Registry {
     if (parsed.data.name !== recipeName) {
       throw new Error(
         `Invalid registry response: package name "${parsed.data.name}" does not match "${recipeName}"`,
+      );
+    }
+    if (recipeVersion && parsed.data.version !== recipeVersion) {
+      throw new Error(
+        `Registry returned version "${parsed.data.version}" for requested version "${recipeVersion}"`,
       );
     }
 
@@ -187,6 +202,23 @@ export class RemoteRegistry implements Registry {
     };
   }
 
+  async listVersions(name: string): Promise<RecipeVersionListResponse> {
+    const recipeName = parseRecipeName(name);
+    const payload = await this.request(
+      `/recipes/${encodeURIComponent(recipeName)}/versions`,
+    );
+    const parsed = RecipeVersionListResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new Error(`Invalid registry response: ${zodMessage(parsed.error)}`);
+    }
+    if (parsed.data.name !== recipeName) {
+      throw new Error(
+        `Invalid registry response: recipe name "${parsed.data.name}" does not match "${recipeName}"`,
+      );
+    }
+    return parsed.data;
+  }
+
   private async readList(query: string | null): Promise<RecipeSummary[]> {
     const suffix =
       query === null
@@ -236,9 +268,12 @@ export class RemoteRegistry implements Registry {
 
     const message = registryErrorMessage(payload, response.status);
     if (response.status === 404) {
-      const recipeName = recipeNameFromPath(suffix);
-      if (recipeName) {
-        throw new RecipeNotFoundError(recipeName);
+      const identity = identityFromPath(suffix);
+      if (identity?.version && identity.name) {
+        throw new RecipeVersionNotFoundError(identity.name, identity.version);
+      }
+      if (identity?.name) {
+        throw new RecipeNotFoundError(identity.name);
       }
     }
     throw new Error(message);
@@ -338,16 +373,48 @@ function parseRecipeName(name: string): string {
   return parsed.data;
 }
 
-function recipeNameFromPath(suffix: string): string | undefined {
-  const match = /^\/recipes\/([^/?]+)/.exec(suffix);
-  if (!match?.[1]) {
+function parseOptionalVersion(version: string | undefined): string | undefined {
+  if (version === undefined) {
     return undefined;
   }
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return match[1];
+  const parsed = SemVerSchema.safeParse(version);
+  if (!parsed.success) {
+    throw new InvalidRecipeVersionError(version);
   }
+  return parsed.data;
+}
+
+function recipePath(name: string, version: string | undefined): string {
+  const encodedName = encodeURIComponent(name);
+  if (!version) {
+    return `/recipes/${encodedName}`;
+  }
+  return `/recipes/${encodedName}/versions/${encodeURIComponent(version)}`;
+}
+
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+function identityFromPath(
+  suffix: string,
+): { name: string; version?: string } | undefined {
+  const versioned = /^\/recipes\/([^/?]+)\/versions\/([^/?]+)/.exec(suffix);
+  if (versioned?.[1] && versioned[2]) {
+    return {
+      name: decodeSegment(versioned[1]),
+      version: decodeSegment(versioned[2]),
+    };
+  }
+  const named = /^\/recipes\/([^/?]+)/.exec(suffix);
+  if (!named?.[1]) {
+    return undefined;
+  }
+  return { name: decodeSegment(named[1]) };
 }
 
 function registryErrorMessage(payload: unknown, status: number): string {

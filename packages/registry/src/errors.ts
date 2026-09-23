@@ -20,6 +20,28 @@ export class RecipeNotFoundError extends Error {
   }
 }
 
+export class InvalidRecipeVersionError extends Error {
+  readonly version: string;
+
+  constructor(version: string) {
+    super(`Invalid recipe version: ${version}`);
+    this.name = "InvalidRecipeVersionError";
+    this.version = version;
+  }
+}
+
+export class RecipeVersionNotFoundError extends Error {
+  readonly recipeName: string;
+  readonly version: string;
+
+  constructor(recipeName: string, version: string) {
+    super(`Recipe version not found: ${recipeName}@${version}`);
+    this.name = "RecipeVersionNotFoundError";
+    this.recipeName = recipeName;
+    this.version = version;
+  }
+}
+
 export class InvalidRecipeError extends Error {
   readonly recipePath: string;
   readonly issues: RecipeIssue[];

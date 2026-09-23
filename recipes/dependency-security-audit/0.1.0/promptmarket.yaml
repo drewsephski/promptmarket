@@ -1,0 +1,33 @@
+schemaVersion: 1
+
+name: dependency-security-audit
+version: 0.1.0
+
+author:
+  name: PromptMarket
+  url: https://github.com/drewsephski/promptmarket/tree/main/recipes/dependency-security-audit/0.1.0
+
+compatibility:
+  - cursor
+  - claude-code
+  - codex
+  - generic
+
+requires:
+  mcp: []
+
+capabilities:
+  filesystem: read
+  network:
+    - registry.npmjs.org
+    - crates.io
+    - proxy.golang.org
+    - pypi.org
+  shell: true
+
+entrypoint: SKILL.md
+
+tags:
+  - security
+  - dependencies
+  - audit

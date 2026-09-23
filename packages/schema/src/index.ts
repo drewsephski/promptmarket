@@ -11,19 +11,29 @@ export {
   type RecipeManifest,
 } from "./recipe.js";
 export {
+  parseRecipeRef,
+  InvalidRecipeReferenceError,
+  RecipeRefSchema,
+  type RecipeRef,
+} from "./recipe-ref.js";
+export {
   RecipeDetailSchema,
   RecipeListResponseSchema,
   RecipePackageFileSchema,
   RecipePackageResponseSchema,
   RecipeSummarySchema,
+  RecipeVersionListResponseSchema,
+  RecipeVersionSummarySchema,
   RegistryErrorSchema,
   type RecipeDetail,
   type RecipeListResponse,
   type RecipePackageFileResponse,
   type RecipePackageResponse,
   type RecipeSummary,
+  type RecipeVersionListResponse,
+  type RecipeVersionSummary,
 } from "./registry-api.js";
-export { SemVerSchema } from "./semver.js";
+export { compareSemver, latestSemver, SemVerSchema } from "./semver.js";
 export {
   SkillDocumentSchema,
   SkillFrontmatterSchema,

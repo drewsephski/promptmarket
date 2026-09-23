@@ -1,5 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { SemVerSchema } from "@promptmarket/schema";
 import { parseManifestText } from "./parse-manifest.js";
 import { parseSkillText } from "./parse-skill.js";
 import type { RecipeIssue, RecipeValidation } from "./types.js";
@@ -17,6 +18,7 @@ export function validateRecipeTexts(
   directoryName: string,
   manifestText: string | undefined,
   skillText: string | undefined,
+  options?: { versionDirectory?: string },
 ): RecipeValidation {
   const errors: RecipeIssue[] = [];
 
@@ -53,7 +55,22 @@ export function validateRecipeTexts(
     return { ok: false, errors };
   }
 
-  if (directoryName !== manifestResult.manifest.name) {
+  if (options?.versionDirectory) {
+    if (directoryName !== manifestResult.manifest.name) {
+      errors.push({
+        code: "name_mismatch",
+        path: "name",
+        message: `Recipe directory "${directoryName}" does not match manifest name "${manifestResult.manifest.name}"`,
+      });
+    }
+    if (options.versionDirectory !== manifestResult.manifest.version) {
+      errors.push({
+        code: "version_mismatch",
+        path: "version",
+        message: `Version directory "${options.versionDirectory}" does not match manifest version "${manifestResult.manifest.version}"`,
+      });
+    }
+  } else if (directoryName !== manifestResult.manifest.name) {
     errors.push({
       code: "name_mismatch",
       path: "name",
@@ -94,5 +111,14 @@ export async function validateRecipe(
   const skillText = (await fileExists(skillPath))
     ? await readFile(skillPath, "utf8")
     : undefined;
-  return validateRecipeTexts(path.basename(resolved), manifestText, skillText);
+  const directoryName = path.basename(resolved);
+  if (SemVerSchema.safeParse(directoryName).success) {
+    return validateRecipeTexts(
+      path.basename(path.dirname(resolved)),
+      manifestText,
+      skillText,
+      { versionDirectory: directoryName },
+    );
+  }
+  return validateRecipeTexts(directoryName, manifestText, skillText);
 }

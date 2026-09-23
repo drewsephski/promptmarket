@@ -1,0 +1,29 @@
+schemaVersion: 1
+
+name: safe-database-migration
+version: 0.1.0
+
+author:
+  name: PromptMarket
+  url: https://github.com/drewsephski/promptmarket/tree/main/recipes/safe-database-migration/0.1.0
+
+compatibility:
+  - cursor
+  - claude-code
+  - codex
+  - generic
+
+requires:
+  mcp: []
+
+capabilities:
+  filesystem: read
+  network: []
+  shell: true
+
+entrypoint: SKILL.md
+
+tags:
+  - database
+  - migration
+  - safety

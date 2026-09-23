@@ -2,14 +2,18 @@ import {
   RecipeDetailSchema,
   RecipeListResponseSchema,
   RecipePackageResponseSchema,
+  RecipeVersionListResponseSchema,
   type RecipeDetail,
   type RecipeListResponse,
   type RecipePackageResponse,
+  type RecipeVersionListResponse,
 } from "@promptmarket/schema";
 import {
   InvalidRecipeError,
   InvalidRecipeNameError,
+  InvalidRecipeVersionError,
   RecipeNotFoundError,
+  RecipeVersionNotFoundError,
 } from "./errors.js";
 import { encodePackageFile } from "./package-encoding.js";
 import type { RecipePackage, Registry } from "./types.js";
@@ -61,19 +65,45 @@ function decodeName(segment: string): string {
   }
 }
 
+const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
+const MUTABLE_CACHE = "public, max-age=0, must-revalidate";
+
+function jsonBody(
+  body: unknown,
+  status: number,
+  cache: "immutable" | "mutable" | "none",
+): Response {
+  const cacheControl =
+    cache === "immutable"
+      ? IMMUTABLE_CACHE
+      : cache === "mutable"
+        ? MUTABLE_CACHE
+        : "no-store";
+  return Response.json(body, {
+    status,
+    headers: { "cache-control": cacheControl },
+  });
+}
+
 export function registryErrorResponse(error: unknown): Response {
-  if (error instanceof RecipeNotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 });
+  if (
+    error instanceof RecipeNotFoundError ||
+    error instanceof RecipeVersionNotFoundError
+  ) {
+    return jsonBody({ error: error.message }, 404, "none");
   }
-  if (error instanceof InvalidRecipeNameError) {
-    return Response.json({ error: error.message }, { status: 400 });
+  if (
+    error instanceof InvalidRecipeNameError ||
+    error instanceof InvalidRecipeVersionError
+  ) {
+    return jsonBody({ error: error.message }, 400, "none");
   }
   if (error instanceof InvalidRecipeError) {
-    return Response.json({ error: error.message }, { status: 422 });
+    return jsonBody({ error: error.message }, 422, "none");
   }
   const message =
     error instanceof Error ? error.message : "Registry request failed";
-  return Response.json({ error: message }, { status: 500 });
+  return jsonBody({ error: message }, 500, "none");
 }
 
 export async function handleRegistryRequest(
@@ -81,10 +111,9 @@ export async function handleRegistryRequest(
   request: Request,
 ): Promise<Response> {
   if (request.method !== "GET") {
-    return Response.json(
-      { error: "Method not allowed" },
-      { status: 405, headers: { allow: "GET" } },
-    );
+    const response = jsonBody({ error: "Method not allowed" }, 405, "none");
+    response.headers.set("allow", "GET");
+    return response;
   }
 
   let pathname = "/";
@@ -94,7 +123,7 @@ export async function handleRegistryRequest(
     pathname = registryPathname(url.pathname);
     query = url.searchParams.get("q");
   } catch {
-    return Response.json({ error: "Invalid registry URL" }, { status: 400 });
+    return jsonBody({ error: "Invalid registry URL" }, 400, "none");
   }
 
   try {
@@ -104,22 +133,52 @@ export async function handleRegistryRequest(
       const body: RecipeListResponse = RecipeListResponseSchema.parse({
         recipes,
       });
-      return Response.json(body);
+      return jsonBody(body, 200, "mutable");
+    }
+
+    const versionPackageMatch =
+      /^\/recipes\/([^/]+)\/versions\/([^/]+)\/package$/.exec(pathname);
+    if (versionPackageMatch?.[1] && versionPackageMatch[2]) {
+      const pkg = await registry.fetchPackage(
+        decodeName(versionPackageMatch[1]),
+        decodeName(versionPackageMatch[2]),
+      );
+      return jsonBody(toPackageResponse(pkg), 200, "immutable");
+    }
+
+    const versionMatch = /^\/recipes\/([^/]+)\/versions\/([^/]+)$/.exec(
+      pathname,
+    );
+    if (versionMatch?.[1] && versionMatch[2]) {
+      const pkg = await registry.fetchPackage(
+        decodeName(versionMatch[1]),
+        decodeName(versionMatch[2]),
+      );
+      return jsonBody(toRecipeDetail(pkg), 200, "immutable");
+    }
+
+    const versionListMatch = /^\/recipes\/([^/]+)\/versions$/.exec(pathname);
+    if (versionListMatch?.[1]) {
+      const body: RecipeVersionListResponse =
+        RecipeVersionListResponseSchema.parse(
+          await registry.listVersions(decodeName(versionListMatch[1])),
+        );
+      return jsonBody(body, 200, "mutable");
     }
 
     const packageMatch = /^\/recipes\/([^/]+)\/package$/.exec(pathname);
     if (packageMatch?.[1]) {
       const pkg = await registry.fetchPackage(decodeName(packageMatch[1]));
-      return Response.json(toPackageResponse(pkg));
+      return jsonBody(toPackageResponse(pkg), 200, "mutable");
     }
 
     const recipeMatch = /^\/recipes\/([^/]+)$/.exec(pathname);
     if (recipeMatch?.[1]) {
       const pkg = await registry.fetchPackage(decodeName(recipeMatch[1]));
-      return Response.json(toRecipeDetail(pkg));
+      return jsonBody(toRecipeDetail(pkg), 200, "mutable");
     }
 
-    return Response.json({ error: "Not found" }, { status: 404 });
+    return jsonBody({ error: "Not found" }, 404, "none");
   } catch (error) {
     return registryErrorResponse(error);
   }

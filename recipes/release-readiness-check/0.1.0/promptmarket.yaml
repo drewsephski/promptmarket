@@ -1,0 +1,29 @@
+schemaVersion: 1
+
+name: release-readiness-check
+version: 0.1.0
+
+author:
+  name: PromptMarket
+  url: https://github.com/drewsephski/promptmarket/tree/main/recipes/release-readiness-check/0.1.0
+
+compatibility:
+  - cursor
+  - claude-code
+  - codex
+  - generic
+
+requires:
+  mcp: []
+
+capabilities:
+  filesystem: read
+  network: []
+  shell: true
+
+entrypoint: SKILL.md
+
+tags:
+  - release
+  - readiness
+  - checklist

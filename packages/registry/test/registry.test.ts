@@ -28,7 +28,8 @@ import {
 } from "../src/index.js";
 
 const recipesDir = path.resolve(import.meta.dirname, "../../../recipes");
-const fixture = path.join(recipesDir, "github-pr-review");
+const fixture = path.join(recipesDir, "github-pr-review", "0.1.0");
+const catalog = path.join(recipesDir, "github-pr-review");
 
 const validManifest = `schemaVersion: 1
 name: sample-recipe
@@ -256,13 +257,13 @@ describe("registry", function registry() {
   test("loads one recipe when a sibling recipe is invalid", async function ignoresInvalidSibling() {
     const sourceRoot = path.join(tempRoot, "recipes");
     await writeRecipe({
-      directoryName: "sample-recipe",
+      directoryName: "sample-recipe/0.1.0",
       manifest: validManifest,
       skill: validSkill,
       parent: sourceRoot,
     });
     await writeRecipe({
-      directoryName: "random-broken-skill",
+      directoryName: "random-broken-skill/0.1.0",
       manifest: "schemaVersion: [\n",
       skill: validSkill,
       parent: sourceRoot,
@@ -281,7 +282,7 @@ describe("registry", function registry() {
     ).toEqual(["sample-recipe"]);
     expect(scan.invalid).toHaveLength(1);
     expect(scan.invalid[0]?.path).toBe(
-      path.join(sourceRoot, "random-broken-skill"),
+      path.join(sourceRoot, "random-broken-skill", "0.1.0"),
     );
     expect(scan.invalid[0]?.errors[0]?.code).toBe("manifest_parse_error");
     await expect(
@@ -306,9 +307,14 @@ describe("registry", function registry() {
     const recipePath = path.join(sourceRoot, "github-pr-review");
     const projectDir = path.join(tempRoot, "project");
     await mkdir(projectDir, { recursive: true });
-    await cp(fixture, recipePath, { recursive: true });
-    await mkdir(path.join(recipePath, "references"), { recursive: true });
-    await writeFile(path.join(recipePath, "references", "notes.md"), "extra\n");
+    await cp(catalog, recipePath, { recursive: true });
+    await mkdir(path.join(recipePath, "0.2.0", "references"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(recipePath, "0.2.0", "references", "notes.md"),
+      "extra\n",
+    );
     await writeFile(
       path.join(projectDir, "promptmarket.lock"),
       `${JSON.stringify(
@@ -367,7 +373,7 @@ describe("registry", function registry() {
     expect(installedAgain.integrity).toBe(installed.integrity);
     expect(lock.recipes["github-pr-review"]).toEqual({
       name: "github-pr-review",
-      version: "0.1.0",
+      version: "0.2.0",
       source: FILE_RECIPE_SOURCE,
       integrity: installed.integrity,
     });
@@ -400,7 +406,7 @@ describe("registry", function registry() {
   test("reports a directory that contains only SKILL.md", async function reportsMissingManifest() {
     const sourceRoot = path.join(tempRoot, "recipes");
     await writeRecipe({
-      directoryName: "broken-recipe",
+      directoryName: "broken-recipe/0.1.0",
       skill: validSkill.replaceAll("sample-recipe", "broken-recipe"),
       parent: sourceRoot,
     });
@@ -410,7 +416,7 @@ describe("registry", function registry() {
     expect(scan.recipes).toEqual([]);
     expect(scan.invalid).toEqual([
       {
-        path: path.join(sourceRoot, "broken-recipe"),
+        path: path.join(sourceRoot, "broken-recipe", "0.1.0"),
         errors: [
           {
             code: "manifest_missing",
@@ -429,7 +435,15 @@ describe("registry", function registry() {
       matches.map(function nameOf(recipe) {
         return recipe.name;
       }),
-    ).toEqual(["github-pr-review"]);
+    ).toEqual([
+      "dependency-security-audit",
+      "github-issue-to-implementation",
+      "github-pr-review",
+      "nextjs-debug-production-build",
+      "release-readiness-check",
+      "repo-onboarding",
+      "safe-database-migration",
+    ]);
     expect(matches[0]?.compatibility).toEqual([
       "cursor",
       "claude-code",
@@ -480,6 +494,13 @@ describe("registry", function registry() {
               contents: new TextEncoder().encode("nope\n"),
             },
           ],
+        };
+      },
+      async listVersions() {
+        return {
+          name: "sample-recipe",
+          latest: "0.1.0",
+          versions: [{ version: "0.1.0", integrity: "sha256-eA==" }],
         };
       },
     };

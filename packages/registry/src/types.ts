@@ -2,6 +2,7 @@ import type {
   RecipeManifest,
   RecipeSource,
   RecipeSummary,
+  RecipeVersionListResponse,
   SkillDocument,
 } from "@promptmarket/schema";
 
@@ -15,7 +16,9 @@ export type RecipeIssueCode =
   | "frontmatter_missing"
   | "skill_parse_error"
   | "skill_invalid"
-  | "name_mismatch";
+  | "name_mismatch"
+  | "invalid_version"
+  | "version_mismatch";
 
 export type RecipeIssue = {
   code: RecipeIssueCode;
@@ -41,7 +44,10 @@ export type RecipePackage = {
 
 export type RegistryOptions = {
   recipesDir?: string;
+  version?: string;
 };
+
+export type RecipeVersionList = RecipeVersionListResponse;
 
 export type RegistryScan = {
   recipes: Recipe[];
@@ -54,14 +60,14 @@ export type RegistryScan = {
 export interface Registry {
   readonly source: RecipeSource;
   list(): Promise<RecipeSummary[]>;
-  get(name: string): Promise<Recipe>;
+  get(name: string, version?: string): Promise<Recipe>;
   search(query: string): Promise<RecipeSummary[]>;
-  fetchPackage(name: string): Promise<RecipePackage>;
+  fetchPackage(name: string, version?: string): Promise<RecipePackage>;
+  listVersions(name: string): Promise<RecipeVersionList>;
 }
 
 export type RecipeValidation =
-  | { ok: true; recipe: Recipe }
-  | { ok: false; errors: RecipeIssue[] };
+  { ok: true; recipe: Recipe } | { ok: false; errors: RecipeIssue[] };
 
 export type InstallOptions = {
   registry: Registry;

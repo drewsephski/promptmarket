@@ -1,6 +1,7 @@
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import {
   RecipeNotFoundError,
+  RecipeVersionNotFoundError,
   type Recipe,
   type RecipeSummary,
   type Registry,
@@ -48,11 +49,19 @@ function registryWith(recipes: Recipe[]): Registry {
     async list() {
       return recipes.map(summaryOf);
     },
-    async get(name: string) {
-      const found = recipes.find(function matchesName(item) {
+    async get(name: string, version?: string) {
+      const matches = recipes.filter(function matchesName(item) {
         return item.manifest.name === name;
       });
+      const found = version
+        ? matches.find(function matchesVersion(item) {
+            return item.manifest.version === version;
+          })
+        : matches[matches.length - 1];
       if (!found) {
+        if (version) {
+          throw new RecipeVersionNotFoundError(name, version);
+        }
         throw new RecipeNotFoundError(name);
       }
       return found;
@@ -79,12 +88,35 @@ function registryWith(recipes: Recipe[]): Registry {
         })
         .map(summaryOf);
     },
-    async fetchPackage(name: string) {
-      const found = await this.get(name);
+    async fetchPackage(name: string, version?: string) {
+      const found = await this.get(name, version);
       return {
         recipe: found,
         files: [],
         integrity: "sha256-eA==",
+      };
+    },
+    async listVersions(name: string) {
+      const matches = recipes.filter(function matchesName(item) {
+        return item.manifest.name === name;
+      });
+      if (matches.length === 0) {
+        throw new RecipeNotFoundError(name);
+      }
+      const versions = matches.map(function summarize(item) {
+        return {
+          version: item.manifest.version,
+          integrity: `sha256-${item.manifest.version}`,
+        };
+      });
+      const latest = versions[versions.length - 1];
+      if (!latest) {
+        throw new RecipeNotFoundError(name);
+      }
+      return {
+        name,
+        latest: latest.version,
+        versions,
       };
     },
   };
@@ -142,6 +174,11 @@ describe("promptmarket mcp", function promptmarketMcp() {
       },
       {
         name: "get_recipe",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
+        name: "list_recipe_versions",
         readOnlyHint: true,
         destructiveHint: false,
       },
@@ -234,5 +271,63 @@ describe("promptmarket mcp", function promptmarketMcp() {
 
     expect(result.isError).toBe(true);
     expect(result.content?.[0]?.text).toContain("missing-recipe");
+  });
+
+  test("inspects and loads an exact version and lists versions without skill bodies", async function usesExactVersions() {
+    const older: Recipe = {
+      ...recipe,
+      manifest: { ...recipe.manifest, version: "0.1.0" },
+      skill: { ...recipe.skill, body: "# Historical\n" },
+    };
+    const newer: Recipe = {
+      ...recipe,
+      manifest: { ...recipe.manifest, version: "0.2.0" },
+      skill: { ...recipe.skill, body: "# Current\n" },
+    };
+    const client = await connect(registryWith([older, newer]));
+    const inspected = (await client.callTool({
+      name: "inspect_recipe",
+      arguments: { name: "github-pr-review", version: "0.1.0" },
+    })) as ToolResult;
+    const loaded = (await client.callTool({
+      name: "get_recipe",
+      arguments: { name: "github-pr-review", version: "0.1.0" },
+    })) as ToolResult;
+    const latest = (await client.callTool({
+      name: "get_recipe",
+      arguments: { name: "github-pr-review" },
+    })) as ToolResult;
+    const listed = (await client.callTool({
+      name: "list_recipe_versions",
+      arguments: { name: "github-pr-review" },
+    })) as ToolResult;
+    const missing = (await client.callTool({
+      name: "get_recipe",
+      arguments: { name: "github-pr-review", version: "9.9.9" },
+    })) as ToolResult;
+
+    expect(inspected.structuredContent).toMatchObject({ version: "0.1.0" });
+    expect(JSON.stringify(inspected.structuredContent)).not.toContain(
+      "# Historical",
+    );
+    expect(loaded.structuredContent).toMatchObject({
+      version: "0.1.0",
+      skill: { body: "# Historical\n" },
+    });
+    expect(latest.structuredContent).toMatchObject({
+      version: "0.2.0",
+      skill: { body: "# Current\n" },
+    });
+    expect(listed.structuredContent).toEqual({
+      name: "github-pr-review",
+      latest: "0.2.0",
+      versions: [
+        { version: "0.1.0", integrity: "sha256-0.1.0" },
+        { version: "0.2.0", integrity: "sha256-0.2.0" },
+      ],
+    });
+    expect(JSON.stringify(listed.structuredContent)).not.toContain("# Current");
+    expect(missing.isError).toBe(true);
+    expect(missing.content?.[0]?.text).toContain("9.9.9");
   });
 });

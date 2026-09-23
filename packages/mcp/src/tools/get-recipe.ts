@@ -5,6 +5,10 @@ import { toolError, toolResult } from "../tool-result.js";
 
 const inputSchema = z.object({
   name: z.string(),
+  version: z
+    .string()
+    .optional()
+    .describe("Exact recipe version. Omit to resolve the latest version."),
 });
 
 const outputSchema = z.object({
@@ -36,7 +40,7 @@ export function registerGetRecipe(server: McpServer, registry: Registry): void {
     },
     async function handleGetRecipe(args) {
       try {
-        const recipe = await registry.get(args.name);
+        const recipe = await registry.get(args.name, args.version);
         return toolResult({
           name: recipe.manifest.name,
           version: recipe.manifest.version,

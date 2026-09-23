@@ -8,6 +8,9 @@ const nextConfig = {
   agentRules: false,
   outputFileTracingRoot: repoRoot,
   outputFileTracingIncludes: {
+    "/": ["../../recipes/**/*"],
+    "/docs": ["../../recipes/**/*"],
+    "/recipes/*": ["../../recipes/**/*"],
     "/api/registry/v1": ["../../recipes/**/*"],
     "/api/registry/v1/*": ["../../recipes/**/*"],
     "/mcp": ["../../recipes/**/*"],

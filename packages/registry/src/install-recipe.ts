@@ -2,14 +2,23 @@ import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import {
   LockfileSchema,
+  compareSemver,
+  parseRecipeRef,
   type Lockfile,
   type LockfileEntry,
   type RecipeSource,
 } from "@promptmarket/schema";
 import { digestFiles } from "./digest.js";
 import { IntegrityError } from "./errors.js";
+import { FileRegistry } from "./file-registry.js";
 import { normalizeRecipeFiles, writeRecipeFiles } from "./recipe-files.js";
-import type { InstallOptions, InstalledRecipe, Registry } from "./types.js";
+import { RemoteRegistry } from "./remote-registry.js";
+import type {
+  InstallOptions,
+  InstalledRecipe,
+  RecipeFile,
+  Registry,
+} from "./types.js";
 
 function lockfilePath(projectDir: string): string {
   return path.join(projectDir, "promptmarket.lock");
@@ -116,19 +125,64 @@ async function writeLockfile(
   await rename(temporary, target);
 }
 
+export type LockfileInstallOptions = {
+  projectDir?: string;
+  recipesDir?: string;
+  fetchImpl?: typeof fetch;
+};
+
+export type OutdatedRecipe = {
+  name: string;
+  version: string;
+  latest: string;
+};
+
+export function registryForSource(
+  source: RecipeSource,
+  options?: { recipesDir?: string; fetchImpl?: typeof fetch },
+): Registry {
+  if (source.type === "file") {
+    return new FileRegistry(
+      options?.recipesDir ? { recipesDir: options.recipesDir } : undefined,
+    );
+  }
+  return new RemoteRegistry(source.url, options?.fetchImpl ?? fetch);
+}
+
+function assertExactPackage(
+  requestedName: string,
+  requestedVersion: string | undefined,
+  fetchedName: string,
+  fetchedVersion: string,
+): void {
+  const requested = requestedVersion
+    ? `${requestedName}@${requestedVersion}`
+    : requestedName;
+  if (fetchedName !== requestedName) {
+    throw new Error(`Registry returned "${fetchedName}" for "${requested}"`);
+  }
+  if (requestedVersion && fetchedVersion !== requestedVersion) {
+    throw new Error(
+      `Registry returned "${fetchedName}@${fetchedVersion}" for "${requested}"`,
+    );
+  }
+}
+
 export async function installRecipe(
-  name: string,
+  reference: string,
   options: InstallOptions,
 ): Promise<InstalledRecipe> {
+  const ref = parseRecipeRef(reference);
   const projectDir = path.resolve(options.projectDir ?? process.cwd());
   const registry: Registry = options.registry;
   const lockfile = await readLockfile(projectDir);
-  const fetched = await registry.fetchPackage(name);
-  if (fetched.recipe.manifest.name !== name) {
-    throw new Error(
-      `Registry returned "${fetched.recipe.manifest.name}" for "${name}"`,
-    );
-  }
+  const fetched = await registry.fetchPackage(ref.name, ref.version);
+  assertExactPackage(
+    ref.name,
+    ref.version,
+    fetched.recipe.manifest.name,
+    fetched.recipe.manifest.version,
+  );
   const files = normalizeRecipeFiles(fetched.files);
   const integrity = digestFiles(files);
   if (integrity !== fetched.integrity) {
@@ -159,4 +213,102 @@ export async function installRecipe(
     integrity: entry.integrity,
     destination,
   };
+}
+
+export async function installFromLockfile(
+  options?: LockfileInstallOptions,
+): Promise<InstalledRecipe[]> {
+  const projectDir = path.resolve(options?.projectDir ?? process.cwd());
+  const lockfile = await readLockfile(projectDir);
+  const names = Object.keys(lockfile.recipes).sort(
+    function byName(left, right) {
+      if (left < right) {
+        return -1;
+      }
+      if (left > right) {
+        return 1;
+      }
+      return 0;
+    },
+  );
+
+  const planned: Array<{
+    entry: LockfileEntry;
+    files: RecipeFile[];
+    destination: string;
+  }> = [];
+
+  for (const name of names) {
+    const entry = lockfile.recipes[name];
+    if (!entry) {
+      continue;
+    }
+    const registry = registryForSource(entry.source, options);
+    const fetched = await registry.fetchPackage(entry.name, entry.version);
+    assertExactPackage(
+      entry.name,
+      entry.version,
+      fetched.recipe.manifest.name,
+      fetched.recipe.manifest.version,
+    );
+    const files = normalizeRecipeFiles(fetched.files);
+    const integrity = digestFiles(files);
+    if (integrity !== entry.integrity || integrity !== fetched.integrity) {
+      throw new IntegrityError(entry.integrity, integrity);
+    }
+    planned.push({
+      entry,
+      files,
+      destination: path.join(projectDir, ".agents", "skills", entry.name),
+    });
+  }
+
+  const installed: InstalledRecipe[] = [];
+  for (const item of planned) {
+    await writeRecipeFiles(item.destination, item.files);
+    installed.push({
+      name: item.entry.name,
+      version: item.entry.version,
+      source: lockfileSource(item.entry.source),
+      integrity: item.entry.integrity,
+      destination: item.destination,
+    });
+  }
+  return installed;
+}
+
+export async function findOutdatedRecipes(
+  options?: LockfileInstallOptions,
+): Promise<OutdatedRecipe[]> {
+  const projectDir = path.resolve(options?.projectDir ?? process.cwd());
+  const lockfile = await readLockfile(projectDir);
+  const names = Object.keys(lockfile.recipes).sort(
+    function byName(left, right) {
+      if (left < right) {
+        return -1;
+      }
+      if (left > right) {
+        return 1;
+      }
+      return 0;
+    },
+  );
+  const outdated: OutdatedRecipe[] = [];
+  for (const name of names) {
+    const entry = lockfile.recipes[name];
+    if (!entry) {
+      continue;
+    }
+    const latest = await registryForSource(entry.source, options).get(
+      entry.name,
+    );
+    if (compareSemver(entry.version, latest.manifest.version) < 0) {
+      outdated.push({
+        name: entry.name,
+        version: entry.version,
+        latest: latest.manifest.version,
+      });
+    }
+  }
+  return outdated;
 }

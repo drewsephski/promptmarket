@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
@@ -7,7 +7,7 @@ import { FileRegistry, handleRegistryRequest } from "@promptmarket/registry";
 import { createRegistry, run, type CliIo } from "../src/program.js";
 
 const recipesDir = path.resolve(import.meta.dirname, "../../../recipes");
-const fixture = path.join(recipesDir, "github-pr-review");
+const fixture = path.join(recipesDir, "github-pr-review", "0.1.0");
 
 function captureIo(): CliIo & { out: () => string; err: () => string } {
   let stdout = "";
@@ -98,7 +98,7 @@ describe("promptmarket cli", function promptmarketCli() {
       ok: true,
       recipe: {
         name: "github-pr-review",
-        version: "0.1.0",
+        version: "0.2.0",
         requires: { mcp: ["io.github.github/github-mcp-server"] },
       },
     });
@@ -183,7 +183,7 @@ describe("promptmarket cli", function promptmarketCli() {
 
     expect(exitCode).toBe(0);
     expect(payload.ok).toBe(true);
-    expect(payload.installed.version).toBe("0.1.0");
+    expect(payload.installed.version).toBe("0.2.0");
     expect(payload.installed.integrity).toMatch(/^sha256-/);
     expect(skill).toContain("name: github-pr-review");
     expect(lock.recipes["github-pr-review"]?.integrity).toBe(
@@ -222,7 +222,10 @@ describe("promptmarket cli", function promptmarketCli() {
     const server = createServer(function handle(request, response) {
       const host = request.headers.host ?? "127.0.0.1";
       const url = `http://${host}${request.url ?? "/"}`;
-      handleRegistryRequest(registry, new Request(url, { method: request.method }))
+      handleRegistryRequest(
+        registry,
+        new Request(url, { method: request.method }),
+      )
         .then(async function write(result) {
           const body = Buffer.from(await result.arrayBuffer());
           response.writeHead(result.status, {
@@ -295,5 +298,172 @@ describe("promptmarket cli", function promptmarketCli() {
         });
       });
     }
+  });
+
+  test("versions, exact info, exact add, and install round-trip", async function versionsAndInstall() {
+    const projectDir = await mkdtemp(
+      path.join(os.tmpdir(), "promptmarket-install-"),
+    );
+    tempDirs.push(projectDir);
+    const versionsIo = captureIo();
+    const versionsExit = await run(
+      [
+        "node",
+        "promptmarket",
+        "versions",
+        "github-pr-review",
+        "--json",
+        "--recipes",
+        recipesDir,
+      ],
+      versionsIo,
+    );
+    const versions = JSON.parse(versionsIo.out()) as {
+      ok: boolean;
+      latest: string;
+      versions: Array<{ version: string }>;
+    };
+    expect(versionsExit).toBe(0);
+    expect(versions.latest).toBe("0.2.0");
+    expect(
+      versions.versions.map(function versionOf(item) {
+        return item.version;
+      }),
+    ).toEqual(["0.2.0", "0.1.0"]);
+
+    const infoIo = captureIo();
+    const infoExit = await run(
+      [
+        "node",
+        "promptmarket",
+        "info",
+        "github-pr-review@0.1.0",
+        "--json",
+        "--recipes",
+        recipesDir,
+      ],
+      infoIo,
+    );
+    expect(infoExit).toBe(0);
+    expect(JSON.parse(infoIo.out())).toMatchObject({
+      ok: true,
+      recipe: { version: "0.1.0" },
+    });
+
+    const addIo = captureIo();
+    const addExit = await run(
+      [
+        "node",
+        "promptmarket",
+        "add",
+        "github-pr-review@0.1.0",
+        "--json",
+        "--recipes",
+        recipesDir,
+        "--project",
+        projectDir,
+      ],
+      addIo,
+    );
+    const added = JSON.parse(addIo.out()) as {
+      installed: { version: string; integrity: string };
+    };
+    expect(addExit).toBe(0);
+    expect(added.installed.version).toBe("0.1.0");
+    const lockBefore = await readFile(
+      path.join(projectDir, "promptmarket.lock"),
+      "utf8",
+    );
+    await rm(path.join(projectDir, ".agents"), {
+      recursive: true,
+      force: true,
+    });
+
+    const installIo = captureIo();
+    const installExit = await run(
+      [
+        "node",
+        "promptmarket",
+        "install",
+        "--json",
+        "--recipes",
+        recipesDir,
+        "--project",
+        projectDir,
+      ],
+      installIo,
+    );
+    const installed = JSON.parse(installIo.out()) as {
+      ok: boolean;
+      installed: Array<{ version: string; integrity: string }>;
+    };
+    const skill = await readFile(
+      path.join(
+        projectDir,
+        ".agents",
+        "skills",
+        "github-pr-review",
+        "SKILL.md",
+      ),
+      "utf8",
+    );
+    const lockAfter = await readFile(
+      path.join(projectDir, "promptmarket.lock"),
+      "utf8",
+    );
+
+    expect(installExit).toBe(0);
+    expect(installed.ok).toBe(true);
+    expect(installed.installed[0]?.version).toBe("0.1.0");
+    expect(installed.installed[0]?.integrity).toBe(added.installed.integrity);
+    expect(skill).toContain(
+      "Use when asked to inspect or review a pull request.",
+    );
+    expect(skill).not.toContain("Classify blocking findings");
+    expect(lockAfter).toBe(lockBefore);
+    await expect(
+      stat(path.join(projectDir, "promptmarket.lock.tmp")),
+    ).rejects.toThrow();
+  });
+
+  test("rejects a malformed recipe reference", async function rejectsBadReference() {
+    const io = captureIo();
+    const exitCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "add",
+        "github-pr-review@banana",
+        "--json",
+        "--recipes",
+        recipesDir,
+      ],
+      io,
+    );
+    const payload = JSON.parse(io.out()) as { ok: boolean; error: string };
+
+    expect(exitCode).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.error).toContain("Invalid recipe reference");
+  });
+
+  test("prints human version output", async function printsVersions() {
+    const io = captureIo();
+    const exitCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "versions",
+        "github-pr-review",
+        "--recipes",
+        recipesDir,
+      ],
+      io,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(io.out()).toContain("latest: 0.2.0\n");
+    expect(io.out()).toContain("0.1.0\tsha256-");
+    expect(io.err()).toBe("");
   });
 });
