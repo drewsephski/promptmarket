@@ -24,6 +24,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
   "scripts": {
     "build": "tsup",
     "check-types": "tsc -p tsconfig.check.json",

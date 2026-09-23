@@ -8,5 +8,5 @@ export default defineConfig({
   splitting: false,
   sourcemap: false,
   clean: true,
-  noExternal: [/@promptmarket\//, "yaml", "zod", "commander"],
+  noExternal: [/@promptmarket\//, "zod", "commander"],
 });
