@@ -7,6 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "",
     "/learn",
     "/prompts",
+    "/guides",
     "/docs",
     "/recipes",
     ...catalog.topics.map(function topicPath(topic) {
@@ -14,6 +15,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }),
     ...catalog.prompts.map(function promptPath(prompt) {
       return prompt.href;
+    }),
+    ...catalog.guides.map(function guidePath(guide) {
+      return guide.href;
     }),
   ];
   return paths.map(function entry(path) {

@@ -1,9 +1,11 @@
 import path from "node:path";
 import { FileRegistry } from "@promptmarket/registry";
 import { describe, expect, test } from "vitest";
+import { generateStaticParams as guideParams } from "../app/guides/[slug]/page";
 import { generateStaticParams as learnParams } from "../app/learn/[slug]/page";
 import { generateStaticParams as promptParams } from "../app/prompts/[slug]/page";
 import { filterGallery, promptGalleryItem } from "../lib/gallery";
+import { parseGuideMarkdown } from "../lib/guide-markdown";
 import { parseSkillMarkdown } from "../lib/skill-markdown";
 import {
   exactInstallCommand,
@@ -65,6 +67,39 @@ describe("catalog presentation", function catalogPresentation() {
     expect(JSON.stringify(blocks)).not.toContain("<script");
   });
 
+  test("parses guide files, commands, and checkpoints without html", function parsesGuide() {
+    const blocks = parseGuideMarkdown(
+      "Create `lib/ai.ts`.\n\n```ts lib/ai.ts\nexport const model = true;\n```\n\n> **Checkpoint:** Open http://localhost:3000.\n",
+    );
+
+    expect(blocks[1]).toMatchObject({
+      type: "code",
+      filename: "lib/ai.ts",
+      language: "ts",
+    });
+    expect(blocks[2]).toMatchObject({ type: "callout", kind: "checkpoint" });
+    const labeled = parseGuideMarkdown(
+      "**Missing `OPENROUTER_API_KEY`.** Put it in `.env.local`.\n",
+    );
+    expect(labeled[0]).toMatchObject({
+      type: "paragraph",
+      inlines: [
+        {
+          type: "strong",
+          children: [
+            { type: "text", text: "Missing " },
+            { type: "code", text: "OPENROUTER_API_KEY" },
+            { type: "text", text: "." },
+          ],
+        },
+        { type: "text", text: " Put it in " },
+        { type: "code", text: ".env.local" },
+        { type: "text", text: "." },
+      ],
+    });
+    expect(JSON.stringify(blocks)).not.toContain("<script");
+  });
+
   test("builds the learn and prompt routes and filters the gallery", function buildsRoutes() {
     const lessons = learnParams();
     const prompts = promptParams();
@@ -78,6 +113,11 @@ describe("catalog presentation", function catalogPresentation() {
       }),
     ).toEqual(expect.arrayContaining(["rag", "evals"]));
     expect(extractor).toBeDefined();
+    expect(
+      guideParams().map(function slugOf(item) {
+        return item.slug;
+      }),
+    ).toContain("ai-product-brief-builder");
     const visible = filterGallery(
       [
         promptGalleryItem({

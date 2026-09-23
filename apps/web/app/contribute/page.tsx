@@ -24,9 +24,7 @@ export default function ContributePage() {
           A pull request is the publish step
         </h1>
         <p className="lede rise" style={{ animationDelay: "160ms" }}>
-          PromptMarket does not have accounts or a separate publishing API. A
-          new recipe version lands when a pull request merges into{" "}
-          <code>drewsephski/promptmarket</code>.
+          A new recipe lands when a pull request merges.
         </p>
       </div>
 

@@ -158,3 +158,39 @@ export type Recommendation = {
   recommendation: PromptSummary | null;
   alternatives: PromptSummary[];
 };
+
+export type GuideSection = {
+  id: string;
+  title: string;
+  markdown: string;
+};
+
+export type Guide = {
+  slug: string;
+  title: string;
+  description: string;
+  difficulty: Difficulty;
+  stack: string[];
+  concepts: string[];
+  estimatedTime?: string;
+  order?: number;
+  prerequisites: string[];
+  whatYouBuild: string[];
+  whatYouLearn: string[];
+  architecture: string[];
+  relatedTopics: string[];
+  relatedPrompts: string[];
+  sections: GuideSection[];
+  href: string;
+};
+
+export type GuideSummary = {
+  slug: string;
+  title: string;
+  description: string;
+  difficulty: Difficulty;
+  stack: string[];
+  concepts: string[];
+  estimatedTime?: string;
+  href: string;
+};

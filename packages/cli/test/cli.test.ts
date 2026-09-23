@@ -496,5 +496,37 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(learned).toBe(0);
     expect(lesson.topic.slug).toBe("rag");
     expect(lesson.topic.url).toBe("https://promptmarket.sh/learn/rag");
+
+    const guidesIo = captureIo();
+    const guidesExit = await run(
+      ["node", "promptmarket", "guides", "--json"],
+      guidesIo,
+    );
+    const guides = JSON.parse(guidesIo.out()) as {
+      ok: boolean;
+      guides: Array<{ slug: string }>;
+    };
+    const guideIo = captureIo();
+    const guideExit = await run(
+      ["node", "promptmarket", "guide", "ai-product-brief-builder", "--json"],
+      guideIo,
+    );
+    const guide = JSON.parse(guideIo.out()) as {
+      ok: boolean;
+      guide: { slug: string; url: string; sections: Array<{ title: string }> };
+    };
+
+    expect(guidesExit).toBe(0);
+    expect(
+      guides.guides.map(function slugOf(item) {
+        return item.slug;
+      }),
+    ).toContain("ai-product-brief-builder");
+    expect(guideExit).toBe(0);
+    expect(guide.guide.slug).toBe("ai-product-brief-builder");
+    expect(guide.guide.url).toBe(
+      "https://promptmarket.sh/guides/ai-product-brief-builder",
+    );
+    expect(guide.guide.sections.length).toBeGreaterThan(5);
   });
 });

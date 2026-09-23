@@ -13,6 +13,9 @@ import {
   PROMPT_CATEGORIES,
   type DiagramId,
   type Difficulty,
+  type Guide,
+  type GuideSection,
+  type GuideSummary,
   type LearnSections,
   type LearnSummary,
   type LearnTopic,
@@ -34,10 +37,15 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export type ContentCatalog = {
   topics: LearnTopic[];
   prompts: PromptDocument[];
+  guides: Guide[];
   getTopic(slug: string): LearnTopic;
   getPrompt(name: string): PromptDocument;
+  getGuide(slug: string): Guide;
   searchTopics(query: string): LearnSummary[];
   searchPrompts(query: string, category?: string): PromptSummary[];
+  searchGuides(query: string): GuideSummary[];
+  guidesForTopic(slug: string): GuideSummary[];
+  guidesForPrompt(slug: string): GuideSummary[];
   recommendPrompt(task: string): Recommendation;
 };
 
@@ -432,7 +440,233 @@ export function summarizePrompt(prompt: PromptDocument): PromptSummary {
   };
 }
 
-function assertGraph(topics: LearnTopic[], prompts: PromptDocument[]): void {
+export function assertDistinctSlugs(kind: string, slugs: string[]): void {
+  const seen = new Set<string>();
+  const problems: string[] = [];
+  for (const slug of slugs) {
+    if (seen.has(slug)) {
+      problems.push(`duplicate ${kind} slug ${slug}`);
+    }
+    seen.add(slug);
+  }
+  if (problems.length > 0) {
+    throw new ContentError("catalog", problems.join("\n"));
+  }
+}
+
+function sectionId(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function guideSections(body: string, file: string): GuideSection[] {
+  if (body.length === 0) {
+    throw new ContentError(file, "Missing guide sections");
+  }
+  const lines = body.split("\n");
+  const sections: GuideSection[] = [];
+  let fence = false;
+  let title = "";
+  let chunk: string[] = [];
+  let started = false;
+
+  function pushSection(): void {
+    const markdown = chunk.join("\n").trim();
+    if (!started) {
+      if (markdown.length > 0) {
+        throw new ContentError(file, "Move prose under a ## section");
+      }
+      return;
+    }
+    if (markdown.length === 0) {
+      throw new ContentError(file, `Section ${title} is empty`);
+    }
+    const id = sectionId(title);
+    if (!SLUG.test(id)) {
+      throw new ContentError(file, `Section ${title} needs a slug id`);
+    }
+    if (
+      sections.some(function same(section) {
+        return section.id === id;
+      })
+    ) {
+      throw new ContentError(file, `Duplicate section ${title}`);
+    }
+    sections.push({ id, title, markdown });
+  }
+
+  for (const line of lines) {
+    if (line.startsWith("```")) {
+      fence = !fence;
+    }
+    if (!fence && line.startsWith("## ")) {
+      pushSection();
+      title = line.slice(3).trim();
+      if (title.length === 0) {
+        throw new ContentError(file, "Section heading is empty");
+      }
+      chunk = [];
+      started = true;
+      continue;
+    }
+    chunk.push(line);
+  }
+  if (fence) {
+    throw new ContentError(file, "Unclosed code fence");
+  }
+  pushSection();
+  if (sections.length === 0) {
+    throw new ContentError(file, "Missing guide sections");
+  }
+  return sections;
+}
+
+function loadGuide(filePath: string): Guide {
+  const file = path.relative(process.cwd(), filePath);
+  const slug = path.basename(filePath, ".md");
+  if (!SLUG.test(slug)) {
+    throw new ContentError(file, "Filename must be a lowercase slug");
+  }
+  const source = readFileSync(filePath, "utf8");
+  const { data, body } = splitFrontmatter(source, file);
+  rejectUnknownKeys(
+    data,
+    [
+      "title",
+      "description",
+      "difficulty",
+      "stack",
+      "concepts",
+      "estimatedTime",
+      "order",
+      "prerequisites",
+      "whatYouBuild",
+      "whatYouLearn",
+      "architecture",
+      "relatedTopics",
+      "relatedPrompts",
+    ],
+    file,
+  );
+  let order: number | undefined;
+  if ("order" in data && data.order !== null && data.order !== undefined) {
+    if (
+      typeof data.order !== "number" ||
+      !Number.isInteger(data.order) ||
+      data.order < 1
+    ) {
+      throw new ContentError(file, "order must be a positive integer");
+    }
+    order = data.order;
+  }
+  return {
+    slug,
+    title: requireString(data, "title", file),
+    description: requireString(data, "description", file),
+    difficulty: oneOf(
+      requireString(data, "difficulty", file),
+      DIFFICULTIES,
+      file,
+      "difficulty",
+    ),
+    stack: requireStringList(data, "stack", file),
+    concepts: requireSlugList(data, "concepts", file, false),
+    estimatedTime: optionalString(data, "estimatedTime", file),
+    order,
+    prerequisites: requireStringList(data, "prerequisites", file),
+    whatYouBuild: requireStringList(data, "whatYouBuild", file),
+    whatYouLearn: requireStringList(data, "whatYouLearn", file),
+    architecture: requireStringList(data, "architecture", file),
+    relatedTopics: requireSlugList(data, "relatedTopics", file, false),
+    relatedPrompts: requireSlugList(data, "relatedPrompts", file, false),
+    sections: guideSections(body, file),
+    href: `/guides/${slug}`,
+  };
+}
+
+function loadGuides(contentDir: string): Guide[] {
+  const directory = path.join(contentDir, "guides");
+  if (!isDirectory(directory)) {
+    return [];
+  }
+  const guides = readMarkdownFiles(directory).map(function read(name) {
+    return loadGuide(path.join(directory, name));
+  });
+  assertDistinctSlugs(
+    "guide",
+    guides.map(function slugOf(guide) {
+      return guide.slug;
+    }),
+  );
+  const orders = guides.flatMap(function orderOf(guide) {
+    return guide.order === undefined ? [] : [guide.order];
+  });
+  assertDistinctSlugs(
+    "guide order",
+    orders.map(function label(order) {
+      return String(order);
+    }),
+  );
+  guides.sort(function byOrder(left, right) {
+    const leftOrder = left.order ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = right.order ?? Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+    return left.title.localeCompare(right.title);
+  });
+  return guides;
+}
+
+export function summarizeGuide(guide: Guide): GuideSummary {
+  return {
+    slug: guide.slug,
+    title: guide.title,
+    description: guide.description,
+    difficulty: guide.difficulty,
+    stack: guide.stack,
+    concepts: guide.concepts,
+    estimatedTime: guide.estimatedTime,
+    href: guide.href,
+  };
+}
+
+function guideFields(guide: Guide) {
+  return {
+    title: guide.title,
+    description: guide.description,
+    category: guide.difficulty,
+    tags: [...guide.concepts, ...guide.stack, ...guide.relatedTopics],
+    extra: guide.relatedPrompts,
+    body: [
+      ...guide.whatYouLearn,
+      ...guide.sections.map(function text(section) {
+        return `${section.title}\n${section.markdown}`;
+      }),
+    ].join("\n"),
+  };
+}
+
+function guidesMatching(
+  guides: Guide[],
+  field: "relatedTopics" | "relatedPrompts",
+  slug: string,
+): GuideSummary[] {
+  return guides
+    .filter(function matches(guide) {
+      return guide[field].includes(slug);
+    })
+    .map(summarizeGuide);
+}
+
+function assertGraph(
+  topics: LearnTopic[],
+  prompts: PromptDocument[],
+  guides: Guide[],
+): void {
   const problems: string[] = [];
   const topicBySlug = new Map(
     topics.map(function entry(topic) {
@@ -507,6 +741,18 @@ function assertGraph(topics: LearnTopic[], prompts: PromptDocument[]): void {
       }
     }
   }
+  for (const guide of guides) {
+    for (const slug of guide.relatedTopics) {
+      if (!topicBySlug.has(slug)) {
+        problems.push(`${guide.slug}: related topic ${slug} does not exist`);
+      }
+    }
+    for (const slug of guide.relatedPrompts) {
+      if (!promptBySlug.has(slug)) {
+        problems.push(`${guide.slug}: related prompt ${slug} does not exist`);
+      }
+    }
+  }
   if (problems.length > 0) {
     throw new ContentError("catalog", problems.join("\n"));
   }
@@ -554,13 +800,14 @@ export function loadContentCatalog(options?: LoadOptions): ContentCatalog {
       return loadPrompt(path.join(contentDir, "prompts", name));
     },
   );
+  const guides = loadGuides(contentDir);
   topics.sort(function byOrder(left, right) {
     return left.order - right.order;
   });
   prompts.sort(function byTitle(left, right) {
     return left.title.localeCompare(right.title);
   });
-  assertGraph(topics, prompts);
+  assertGraph(topics, prompts, guides);
   const topicMap = new Map(
     topics.map(function entry(topic) {
       return [topic.slug, topic] as const;
@@ -571,10 +818,16 @@ export function loadContentCatalog(options?: LoadOptions): ContentCatalog {
       return [prompt.slug, prompt] as const;
     }),
   );
+  const guideMap = new Map(
+    guides.map(function entry(guide) {
+      return [guide.slug, guide] as const;
+    }),
+  );
 
   return {
     topics,
     prompts,
+    guides,
     getTopic(slug: string): LearnTopic {
       const topic = topicMap.get(slug);
       if (!topic) {
@@ -588,6 +841,13 @@ export function loadContentCatalog(options?: LoadOptions): ContentCatalog {
         throw new ContentNotFoundError("prompt", name);
       }
       return prompt;
+    },
+    getGuide(slug: string): Guide {
+      const guide = guideMap.get(slug);
+      if (!guide) {
+        throw new ContentNotFoundError("guide", slug);
+      }
+      return guide;
     },
     searchTopics(query: string): LearnSummary[] {
       return rankItems(query, topics, topicFields).map(
@@ -614,6 +874,19 @@ export function loadContentCatalog(options?: LoadOptions): ContentCatalog {
       }).map(function summarize(ranked) {
         return summarizePrompt(ranked.item);
       });
+    },
+    searchGuides(query: string): GuideSummary[] {
+      return rankItems(query, guides, guideFields).map(
+        function summarize(ranked) {
+          return summarizeGuide(ranked.item);
+        },
+      );
+    },
+    guidesForTopic(slug: string): GuideSummary[] {
+      return guidesMatching(guides, "relatedTopics", slug);
+    },
+    guidesForPrompt(slug: string): GuideSummary[] {
+      return guidesMatching(guides, "relatedPrompts", slug);
     },
     recommendPrompt(task: string): Recommendation {
       const ranked = rankItems(task, prompts, function fields(prompt) {

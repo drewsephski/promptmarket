@@ -10,6 +10,8 @@ Requires Node.js 22 or newer.
 pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag
+pnpm dlx @promptmarket/cli guides
+pnpm dlx @promptmarket/cli guide ai-product-brief-builder
 ```
 
 ## Install

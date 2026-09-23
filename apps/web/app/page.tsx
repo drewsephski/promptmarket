@@ -97,9 +97,7 @@ export default function Home() {
             Build.
           </h1>
           <p className="lede">
-            Practical AI engineering for developers. Understand RAG, tools,
-            agents, structured outputs, and evals, then copy the prompt pattern
-            into your app.
+            Learn the pattern, then copy the prompt into your app.
           </p>
           <div className="cta-row">
             <a className="pill" href="/learn">
@@ -108,8 +106,8 @@ export default function Home() {
                 <ArrowMark />
               </span>
             </a>
-            <a className="pill pill-quiet" href="/prompts">
-              <span>Browse prompts</span>
+            <a className="pill pill-quiet" href="/guides">
+              <span>Follow a guide</span>
               <span className="pill-mark" aria-hidden="true">
                 <ArrowMark />
               </span>
@@ -184,6 +182,23 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="band" aria-labelledby="guides-heading">
+        <div className="chapter-head">
+          <p className="eyebrow">Guides</p>
+          <h2 id="guides-heading">
+            Build a complete app from an empty project.
+          </h2>
+        </div>
+        <p className="lede">
+          A guide includes the keys, the database, and the code, and it ends
+          with something running on localhost.{" "}
+          <a href="/guides/ai-product-brief-builder">
+            Start with the product brief generator
+          </a>
+          .
+        </p>
+      </section>
+
       <section className="band ladder-band" aria-labelledby="ladder-heading">
         <div>
           <div className="chapter-head">
@@ -203,13 +218,15 @@ export default function Home() {
       <section className="band" aria-labelledby="agent-heading">
         <div className="chapter-head">
           <p className="eyebrow">From your agent</p>
-          <h2 id="agent-heading">The same lessons and prompts, over MCP.</h2>
+          <h2 id="agent-heading">
+            The same lessons, prompts, and guides, over MCP.
+          </h2>
         </div>
         <Bezel coreClassName="panel">
           <p>
-            {lessonCount} lessons across {moduleCount} modules, plus the prompt
-            gallery. Installable skills stay available when a task is a
-            procedure rather than a prompt.
+            {lessonCount} lessons across {moduleCount} modules, the prompt
+            gallery, and full-stack guides. Installable skills stay available
+            when a task is a procedure rather than a prompt.
           </p>
           <CommandBlock command={HOSTED_MCP_URL} label="Copy MCP endpoint" />
           <p className="note">

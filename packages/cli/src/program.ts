@@ -108,7 +108,9 @@ export function createProgram(
   const program = new Command();
   program
     .name("promptmarket")
-    .description("Search prompts and lessons, or install PromptMarket skills")
+    .description(
+      "Search prompts and lessons, read guides, or install PromptMarket skills",
+    )
     .version("0.3.0")
     .configureOutput({
       writeOut: function writeOut(message: string) {
@@ -517,6 +519,103 @@ export function createProgram(
             topic.definition,
             "",
             topic.mentalModel,
+            "",
+          ].join("\n"),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("guides")
+    .description("List full-stack guides")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option(
+      "--content <dir>",
+      "Read lessons, prompts, and guides from a directory",
+    )
+    .action(function guidesAction(options: {
+      json?: boolean;
+      content?: string;
+    }) {
+      try {
+        const guides = contentCatalog(options.content).guides;
+        if (options.json) {
+          io.stdout(
+            json({
+              ok: true,
+              guides: guides.map(function summarize(guide) {
+                return {
+                  slug: guide.slug,
+                  title: guide.title,
+                  description: guide.description,
+                  difficulty: guide.difficulty,
+                  url: `${SITE_ORIGIN}${guide.href}`,
+                };
+              }),
+            }),
+          );
+          return;
+        }
+        if (guides.length === 0) {
+          io.stdout("No guides yet.\n");
+          return;
+        }
+        for (const guide of guides) {
+          io.stdout(`${guide.slug}\n${guide.title}\n${guide.description}\n`);
+        }
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("guide")
+    .description("Print one guide's outline and URL")
+    .argument("<slug>", "Guide slug, such as ai-product-brief-builder")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option(
+      "--content <dir>",
+      "Read lessons, prompts, and guides from a directory",
+    )
+    .action(function guideAction(
+      slug: string,
+      options: { json?: boolean; content?: string },
+    ) {
+      try {
+        const guide = contentCatalog(options.content).getGuide(slug);
+        const url = `${SITE_ORIGIN}${guide.href}`;
+        const sections = guide.sections.map(function summarize(section) {
+          return { id: section.id, title: section.title };
+        });
+        if (options.json) {
+          io.stdout(
+            json({
+              ok: true,
+              guide: {
+                slug: guide.slug,
+                title: guide.title,
+                description: guide.description,
+                difficulty: guide.difficulty,
+                stack: guide.stack,
+                url,
+                sections,
+              },
+            }),
+          );
+          return;
+        }
+        io.stdout(
+          [
+            guide.title,
+            url,
+            "",
+            guide.description,
+            "",
+            ...sections.map(function line(section) {
+              return section.title;
+            }),
             "",
           ].join("\n"),
         );

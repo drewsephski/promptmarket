@@ -18,6 +18,9 @@ export {
   PROMPT_CATEGORIES,
   type DiagramId,
   type Difficulty,
+  type Guide,
+  type GuideSection,
+  type GuideSummary,
   type LearnSummary,
   type LearnTopic,
   type ModuleId,
@@ -27,3 +30,4 @@ export {
   type Recommendation,
   type SearchFields,
 } from "./types.js";
+export { assertDistinctSlugs } from "./load.js";

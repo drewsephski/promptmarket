@@ -20,6 +20,16 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 html,
 body {
   margin: 0;
@@ -125,13 +135,12 @@ input {
 
 .mast::before {
   content: "";
-  position: absolute;
-  z-index: -1;
-  top: -1.35rem;
-  left: 50%;
-  width: 100vw;
+  position: fixed;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
   height: 6.25rem;
-  transform: translateX(-50%);
   pointer-events: none;
   background: linear-gradient(
     to bottom,
@@ -149,7 +158,7 @@ input {
   align-items: center;
   gap: 0.35rem;
   width: max-content;
-  max-width: calc(100vw - 2rem);
+  max-width: 100%;
   padding: 0.35rem 0.35rem 0.35rem 0.95rem;
   border-radius: 999px;
   background: rgba(251, 247, 241, 0.94);
@@ -324,7 +333,8 @@ input {
 .hero-copy h1,
 .docs h1,
 .article h1,
-.recipe-head h1 {
+.recipe-head h1,
+.page-intro h1 {
   margin: 0;
   font-family: var(--display);
   font-weight: 460;
@@ -352,11 +362,11 @@ input {
 }
 
 .lede {
-  max-width: 38rem;
-  margin: 1.35rem 0 0;
+  max-width: 34rem;
+  margin: 0.9rem 0 0;
   color: var(--muted);
-  font-size: 1.12rem;
-  line-height: 1.6;
+  font-size: 1.02rem;
+  line-height: 1.45;
 }
 
 .channels {
@@ -401,7 +411,7 @@ input {
   margin-top: 0.85rem;
   padding: 0.8rem 0.8rem 0.8rem 1rem;
   border-radius: 1.15rem;
-  background: rgba(28, 23, 18, 0.035);
+  background: rgba(28, 23, 18, 0.11);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
@@ -425,7 +435,7 @@ input {
   margin: 0.8rem 0 1rem;
   padding: 0.9rem 1rem;
   border-radius: 1rem;
-  background: rgba(28, 23, 18, 0.04);
+  background: rgba(28, 23, 18, 0.11);
 }
 
 .pill {
@@ -451,6 +461,19 @@ input {
 
 .pill:active {
   transform: scale(0.98);
+}
+
+.pill-copy-label {
+  display: grid;
+  white-space: nowrap;
+}
+
+.pill-copy-label > span {
+  grid-area: 1 / 1;
+}
+
+.pill-copy-label > span[aria-hidden="true"] {
+  visibility: hidden;
 }
 
 .pill-mark {
@@ -481,8 +504,9 @@ input {
 .chapter h2,
 .docs h1,
 .article h1,
-.recipe-head h1 {
-  font-size: clamp(2.7rem, 5.5vw, 4.4rem);
+.recipe-head h1,
+.page-intro h1 {
+  font-size: clamp(2.4rem, 4.6vw, 3.6rem);
 }
 
 .chapter h2 {
@@ -558,6 +582,10 @@ input {
   gap: 0.8rem;
 }
 
+.page-intro + .catalog {
+  margin-top: 1.75rem;
+}
+
 .entry {
   display: block;
   color: inherit;
@@ -586,15 +614,9 @@ input {
 .entry-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 0.85rem;
+  gap: 0.3rem;
   align-items: center;
-  margin-top: 0.75rem;
-}
-
-.entry-meta > * + *::before {
-  content: "·";
-  margin-right: 0.85rem;
-  color: rgba(28, 23, 18, 0.28);
+  margin-top: 0.85rem;
 }
 
 .entry-index {
@@ -627,7 +649,6 @@ input {
 }
 
 .version,
-.tag,
 .compat span {
   font-family: var(--mono);
   font-size: 0.72rem;
@@ -636,7 +657,19 @@ input {
 }
 
 .tag {
+  display: inline-flex;
+  align-items: center;
+  height: 1.4rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(44, 74, 62, 0.16);
+  background: rgba(44, 74, 62, 0.06);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
   color: var(--sage);
+  white-space: nowrap;
 }
 
 .tags,
@@ -681,12 +714,25 @@ input {
 }
 
 .recipe-head {
+  max-width: 40rem;
+  margin-inline: auto;
   padding: 4.25rem 0 0.5rem;
+  text-align: center;
 }
 
 .recipe-head h1 {
   max-width: 16ch;
+  margin-inline: auto;
   word-break: break-word;
+}
+
+.recipe-head .lede,
+.recipe-head .meta {
+  margin-inline: auto;
+}
+
+.recipe-head .versions {
+  justify-content: center;
 }
 
 .back {
@@ -1026,7 +1072,7 @@ textarea.control {
   margin: 0;
   padding: 0.85rem;
   border-radius: 0.85rem;
-  background: rgba(28, 23, 18, 0.04);
+  background: rgba(28, 23, 18, 0.11);
   white-space: pre-wrap;
 }
 
@@ -1067,8 +1113,37 @@ textarea.control {
 .cta-row {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.7rem;
-  margin-top: 1.6rem;
+  margin-top: 1.35rem;
+}
+
+.page-intro,
+.hero-copy {
+  max-width: 40rem;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.page-intro .lede,
+.page-intro .definition,
+.hero-copy .lede,
+.hero-copy h1,
+.hero-copy h1.hero-stack {
+  margin-inline: auto;
+}
+
+.page-intro .crumbs,
+.guide > .crumbs {
+  justify-content: center;
+}
+
+.page-intro .entry-meta {
+  justify-content: center;
+}
+
+.docs > .back {
+  justify-self: center;
 }
 
 .pill-quiet {
@@ -1077,8 +1152,16 @@ textarea.control {
   box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
+.pill-quiet:hover {
+  color: #fff;
+}
+
 .pill-quiet .pill-mark {
   background: rgba(28, 23, 18, 0.06);
+}
+
+.pill-quiet:hover .pill-mark {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .mcp-line {
@@ -1141,6 +1224,7 @@ textarea.control {
 
 .article {
   width: min(46rem, 100%);
+  margin-inline: auto;
   padding: 4.25rem 0 1rem;
 }
 
@@ -1459,7 +1543,7 @@ textarea.control {
   margin: 0.4rem 0 0;
   padding: 0.9rem 1rem;
   border-radius: 1rem;
-  background: rgba(28, 23, 18, 0.04);
+  background: rgba(28, 23, 18, 0.11);
   overflow-x: auto;
   white-space: pre-wrap;
 }
@@ -1493,3 +1577,245 @@ textarea.control {
     align-items: end;
   }
 }
+
+.guide {
+  width: 100%;
+  padding: 4.25rem 0 2rem;
+}
+
+.guide-header {
+  width: 100%;
+}
+
+.guide-meta,
+.guide-facts {
+  margin-top: 1.25rem;
+}
+
+.guide-meta {
+  justify-content: center;
+}
+
+.guide-facts {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.guide-facts h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+
+.guide-layout {
+  display: grid;
+  gap: 2rem;
+  margin-top: 2.5rem;
+  min-width: 0;
+}
+
+.guide-layout > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.guide-toc {
+  min-width: 0;
+}
+
+.guide-toc ol {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+
+.guide-toc a {
+  display: block;
+  padding: 0.28rem 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+.guide-toc a:hover {
+  color: var(--ink);
+}
+
+.guide-section {
+  scroll-margin-top: 6rem;
+}
+
+.guide-body h3,
+.guide-section h2 {
+  scroll-margin-top: 6rem;
+}
+
+.file-block {
+  margin: 0.9rem 0 1.1rem;
+  border: 1px solid var(--hairline);
+  border-radius: 1rem;
+  background: rgba(28, 23, 18, 0.11);
+  overflow: hidden;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.file-block figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.55rem 0.7rem 0.55rem 0.95rem;
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.file-block .pill {
+  padding: 0.35rem 0.55rem 0.35rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.guide-code {
+  margin: 0;
+  max-width: 100%;
+  padding: 0.95rem 1rem 0.7rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: pre;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  background: rgba(28, 23, 18, 0.11);
+}
+
+.guide-code,
+.command pre,
+.skill pre,
+.example-grid pre,
+.article pre,
+.package-preview {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(109, 101, 91, 0.7) transparent;
+}
+
+.guide-code::-webkit-scrollbar,
+.command pre::-webkit-scrollbar,
+.skill pre::-webkit-scrollbar,
+.example-grid pre::-webkit-scrollbar,
+.article pre::-webkit-scrollbar,
+.package-preview::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.guide-code::-webkit-scrollbar-track,
+.command pre::-webkit-scrollbar-track,
+.skill pre::-webkit-scrollbar-track,
+.example-grid pre::-webkit-scrollbar-track,
+.article pre::-webkit-scrollbar-track,
+.package-preview::-webkit-scrollbar-track {
+  background: transparent;
+  margin-inline: 0.85rem;
+}
+
+.guide-code::-webkit-scrollbar-thumb,
+.command pre::-webkit-scrollbar-thumb,
+.skill pre::-webkit-scrollbar-thumb,
+.example-grid pre::-webkit-scrollbar-thumb,
+.article pre::-webkit-scrollbar-thumb,
+.package-preview::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background-color: rgba(109, 101, 91, 0.55);
+}
+
+.guide-code::-webkit-scrollbar-thumb:hover,
+.command pre::-webkit-scrollbar-thumb:hover,
+.skill pre::-webkit-scrollbar-thumb:hover,
+.example-grid pre::-webkit-scrollbar-thumb:hover,
+.article pre::-webkit-scrollbar-thumb:hover,
+.package-preview::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(44, 74, 62, 0.7);
+}
+
+.file-block .guide-code {
+  background: transparent;
+}
+
+.guide .command {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.callout {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: 1rem;
+  background: var(--paper-raise);
+}
+
+.callout-checkpoint {
+  border-color: rgba(44, 74, 62, 0.28);
+}
+
+.callout-warning {
+  border-color: rgba(196, 73, 29, 0.35);
+}
+
+.callout-label {
+  margin: 0 0 0.25rem;
+  color: var(--sage);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.callout-warning .callout-label {
+  color: var(--danger);
+}
+
+.callout-body p {
+  margin: 0;
+}
+
+.upcoming {
+  margin-top: 2.5rem;
+}
+
+.upcoming ul {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+}
+
+.upcoming li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.upcoming span {
+  color: var(--muted);
+}
+
+@media (min-width: 960px) {
+  .guide-layout {
+    grid-template-columns: 14.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: 2.5rem;
+  }
+
+  .guide-toc {
+    position: sticky;
+    top: 5.5rem;
+  }
+
+  .guide-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+

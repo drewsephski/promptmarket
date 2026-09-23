@@ -68,10 +68,7 @@ export function FlowDiagram({ id }: { id: DiagramId }) {
         })}
       </ol>
       {flow.loop ? (
-        <p className="flow-loop">
-          <span aria-hidden="true">↺ </span>
-          {flow.loop}
-        </p>
+        <p className="flow-loop">{flow.loop}</p>
       ) : null}
     </figure>
   );

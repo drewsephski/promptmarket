@@ -2,6 +2,7 @@ import { categoryLabel, loadContentCatalog } from "@promptmarket/content";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CommandBlock } from "../../../components/command-block";
+import { RelatedGuides } from "../../../components/related-guides";
 import { pageMetadata } from "../../../lib/present";
 
 interface PromptPageProps {
@@ -38,29 +39,31 @@ export default async function PromptPage({ params }: PromptPageProps) {
 
   return (
     <main className="article article-wide">
-      <nav className="crumbs" aria-label="Breadcrumb">
-        <a href="/prompts">Prompts</a>
-        <span aria-hidden="true">/</span>
-        <a href={`/prompts?category=${prompt.category}`}>
-          {categoryLabel(prompt.category)}
-        </a>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">{prompt.title}</span>
-      </nav>
-      <p className="eyebrow">Prompt</p>
-      <h1>{prompt.title}</h1>
-      <p className="lede">{prompt.description}</p>
-      <div className="entry-meta prompt-meta">
-        <span className="tag">{categoryLabel(prompt.category)}</span>
-        <span className="tag">{prompt.difficulty}</span>
-        {prompt.tags.map(function renderTag(tag) {
-          return (
-            <span className="tag" key={tag}>
-              {tag}
-            </span>
-          );
-        })}
-      </div>
+      <header className="page-intro">
+        <nav className="crumbs" aria-label="Breadcrumb">
+          <a href="/prompts">Prompts</a>
+          <span aria-hidden="true">/</span>
+          <a href={`/prompts?category=${prompt.category}`}>
+            {categoryLabel(prompt.category)}
+          </a>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{prompt.title}</span>
+        </nav>
+        <p className="eyebrow">Prompt</p>
+        <h1>{prompt.title}</h1>
+        <p className="lede">{prompt.description}</p>
+        <div className="entry-meta prompt-meta">
+          <span className="tag">{categoryLabel(prompt.category)}</span>
+          <span className="tag">{prompt.difficulty}</span>
+          {prompt.tags.map(function renderTag(tag) {
+            return (
+              <span className="tag" key={tag}>
+                {tag}
+              </span>
+            );
+          })}
+        </div>
+      </header>
 
       <section>
         <h2>When to use</h2>
@@ -135,6 +138,8 @@ export default async function PromptPage({ params }: PromptPageProps) {
           })}
         </ul>
       </section>
+
+      <RelatedGuides guides={catalog.guidesForPrompt(prompt.slug)} />
 
       {prompt.relatedPrompts.length > 0 ? (
         <section>

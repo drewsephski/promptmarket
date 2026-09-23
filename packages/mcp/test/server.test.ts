@@ -183,6 +183,16 @@ describe("promptmarket mcp", function promptmarketMcp() {
         destructiveHint: false,
       },
       {
+        name: "search_guides",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
+        name: "get_guide",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
         name: "recommend_prompt",
         readOnlyHint: true,
         destructiveHint: false,
@@ -410,5 +420,42 @@ describe("promptmarket mcp", function promptmarketMcp() {
         return prompt.name;
       }),
     ).toContain("rag-grounded-answer");
+  });
+
+  test("search_guides and get_guide return the product brief tutorial", async function loadsGuide() {
+    const client = await connect(registryWith([]));
+    const searched = (await client.callTool({
+      name: "search_guides",
+      arguments: { query: "structured outputs" },
+    })) as ToolResult;
+    const loaded = (await client.callTool({
+      name: "get_guide",
+      arguments: { slug: "ai-product-brief-builder" },
+    })) as ToolResult;
+    const missing = (await client.callTool({
+      name: "get_guide",
+      arguments: { slug: "missing-guide" },
+    })) as ToolResult;
+
+    expect(searched.isError).toBeFalsy();
+    expect(searched.structuredContent).toMatchObject({
+      guides: [
+        {
+          slug: "ai-product-brief-builder",
+          difficulty: "beginner",
+          url: "https://promptmarket.sh/guides/ai-product-brief-builder",
+        },
+      ],
+    });
+    const guide = loaded.structuredContent as {
+      title: string;
+      sections: Array<{ markdown: string }>;
+    };
+    expect(guide.title).toContain("Product Brief");
+    expect(guide.sections[0]?.markdown.length).toBeGreaterThan(20);
+    expect(loaded.structuredContent).not.toHaveProperty("html");
+    expect(JSON.stringify(loaded.structuredContent)).not.toContain("<!DOCTYPE");
+    expect(JSON.stringify(loaded.structuredContent)).toContain("Output.object");
+    expect(missing.isError).toBe(true);
   });
 });

@@ -16,9 +16,7 @@ export default function CreatePage() {
           Create a recipe
         </h1>
         <p className="lede rise" style={{ animationDelay: "160ms" }}>
-          The package on the right is the same <code>promptmarket.yaml</code>{" "}
-          and <code>SKILL.md</code> the CLI writes. Download it, then submit a
-          pull request with <code>promptmarket submit</code>.
+          Write the recipe, download the package, then open a pull request.
         </p>
       </div>
       <RecipeBuilder />

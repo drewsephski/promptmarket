@@ -32,7 +32,10 @@ export function CopyButton({ value, label }: CopyButtonProps) {
       }}
       aria-label={label}
     >
-      <span>{copied ? "Copied" : "Copy"}</span>
+      <span className="pill-copy-label">
+        <span aria-hidden={copied}>Copy</span>
+        <span aria-hidden={!copied}>Copied</span>
+      </span>
       <span className="pill-mark" aria-hidden="true">
         {copied ? <CheckMark /> : <CopyMark />}
       </span>

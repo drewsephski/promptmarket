@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 const links = [
   { href: "/learn", label: "Learn" },
   { href: "/prompts", label: "Prompts" },
+  { href: "/guides", label: "Guides" },
   { href: "/docs", label: "Docs" },
-  { href: "https://github.com/drewsephski/promptmarket", label: "GitHub" },
 ];
 
 export function SiteHeader() {
@@ -103,8 +103,10 @@ export function SiteFooter() {
       <span className="footer-links">
         <a href="/learn">Learn</a>
         <a href="/prompts">Prompts</a>
+        <a href="/guides">Guides</a>
         <a href="/recipes">Skills</a>
         <a href="/docs">Docs</a>
+        <a href="https://github.com/drewsephski/promptmarket">GitHub</a>
       </span>
     </footer>
   );

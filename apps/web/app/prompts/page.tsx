@@ -77,8 +77,7 @@ export default async function PromptsPage({ searchParams }: PromptsPageProps) {
         <p className="eyebrow">Gallery</p>
         <h1>Prompts for real AI features.</h1>
         <p className="lede">
-          Copy a pattern into your app. Skills are installable procedures for
-          coding agents, kept separate from prompts.
+          Patterns you can copy. Skills are separate, for coding agents.
         </p>
       </div>
       <PromptFilters

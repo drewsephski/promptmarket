@@ -12,12 +12,13 @@ export default function LearnIndexPage() {
   const topics = loadContentCatalog().topics;
   return (
     <main className="article article-wide">
-      <p className="eyebrow">Roadmap</p>
-      <h1>Learn how AI apps actually work.</h1>
-      <p className="lede">
-        Sixteen lessons. Each one ends at a prompt you can copy. Use the
-        simplest technique that solves the problem.
-      </p>
+      <header className="page-intro">
+        <p className="eyebrow">Roadmap</p>
+        <h1>Learn how AI apps actually work.</h1>
+        <p className="lede">
+          Short lessons. Each one ends at a prompt you can copy.
+        </p>
+      </header>
       {MODULES.map(function renderModule(module) {
         const lessons = topics.filter(function inModule(topic) {
           return topic.module === module.id;

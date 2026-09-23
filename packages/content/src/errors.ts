@@ -6,7 +6,7 @@ export class ContentError extends Error {
 }
 
 export class ContentNotFoundError extends Error {
-  constructor(kind: "prompt" | "topic", slug: string) {
+  constructor(kind: "prompt" | "topic" | "guide", slug: string) {
     super(`Unknown ${kind}: ${slug}`);
     this.name = "ContentNotFoundError";
   }

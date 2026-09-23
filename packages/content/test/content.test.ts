@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import {
   ContentError,
+  assertDistinctSlugs,
   detectPlaceholders,
   loadContentCatalog,
 } from "../src/index.js";
@@ -71,6 +72,93 @@ describe("promptmarket content", function contentSuite() {
       "structured-data-extractor",
     );
     expect(weak.recommendation).toBeNull();
+  });
+
+  test("loads the product brief guide and searches it", function loadsGuide() {
+    const catalog = loadContentCatalog();
+    const guide = catalog.getGuide("ai-product-brief-builder");
+    const found = catalog.searchGuides("structured outputs");
+
+    expect(guide.difficulty).toBe("beginner");
+    expect(guide.stack).toContain("Neon");
+    expect(guide.relatedTopics).toContain("structured-outputs");
+    expect(guide.relatedPrompts).toContain("structured-data-extractor");
+    expect(guide.sections.length).toBeGreaterThan(10);
+    expect(
+      guide.sections.some(function hasOutput(section) {
+        return section.markdown.includes("Output.object");
+      }),
+    ).toBe(true);
+    expect(
+      guide.sections.map(function idOf(section) {
+        return section.id;
+      }),
+    ).not.toContain("");
+    expect(found[0]?.slug).toBe("ai-product-brief-builder");
+    expect(catalog.guidesForTopic("evals")[0]?.slug).toBe(
+      "ai-product-brief-builder",
+    );
+    expect(catalog.guidesForPrompt("json-output-system")[0]?.slug).toBe(
+      "ai-product-brief-builder",
+    );
+    expect(JSON.stringify(guide.sections)).not.toContain("generateObject(");
+  });
+
+  test("rejects a guide that points at missing lessons or prompts", async function rejectsBrokenGuide() {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "promptmarket-content-"),
+    );
+    tempDirs.push(directory);
+    await mkdir(path.join(directory, "learn"), { recursive: true });
+    await mkdir(path.join(directory, "prompts"), { recursive: true });
+    await mkdir(path.join(directory, "guides"), { recursive: true });
+    await writeFile(
+      path.join(directory, "guides", "sample-guide.md"),
+      `---
+title: Sample
+description: A sample guide
+difficulty: beginner
+stack:
+  - Next.js
+concepts:
+  - sample
+prerequisites:
+  - Node.js
+whatYouBuild:
+  - An app
+whatYouLearn:
+  - A concept
+architecture:
+  - Input
+relatedTopics:
+  - missing-topic
+relatedPrompts:
+  - missing-prompt
+---
+
+## Start
+
+Hello.
+`,
+    );
+
+    expect(function loadBroken() {
+      loadContentCatalog({ contentDir: directory });
+    }).toThrow(ContentError);
+    try {
+      loadContentCatalog({ contentDir: directory });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      expect(message).toContain("sample-guide:");
+      expect(message).toContain("related topic missing-topic does not exist");
+      expect(message).toContain("related prompt missing-prompt does not exist");
+    }
+  });
+
+  test("rejects duplicate guide slugs", function rejectsDuplicateSlugs() {
+    expect(function duplicate() {
+      assertDistinctSlugs("guide", ["alpha", "alpha"]);
+    }).toThrow(/duplicate guide slug alpha/);
   });
 
   test("rejects invalid prompt content with the file path", async function rejectsInvalid() {

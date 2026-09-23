@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FlowDiagram } from "../../../components/flow-diagram";
 import { SkillBody } from "../../../components/skill-body";
+import { RelatedGuides } from "../../../components/related-guides";
 import { pageMetadata } from "../../../lib/present";
 
 interface LearnPageProps {
@@ -44,16 +45,18 @@ export default async function LearnTopicPage({ params }: LearnPageProps) {
 
   return (
     <main className="article">
-      <nav className="crumbs" aria-label="Breadcrumb">
-        <a href="/learn">Learn</a>
-        <span aria-hidden="true">/</span>
-        <a href={`/learn#${topic.module}`}>{moduleTitle(topic.module)}</a>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">{topic.title}</span>
-      </nav>
-      <p className="eyebrow">{moduleTitle(topic.module)}</p>
-      <h1>{topic.title}</h1>
-      <p className="definition">{topic.definition}</p>
+      <header className="page-intro">
+        <nav className="crumbs" aria-label="Breadcrumb">
+          <a href="/learn">Learn</a>
+          <span aria-hidden="true">/</span>
+          <a href={`/learn#${topic.module}`}>{moduleTitle(topic.module)}</a>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{topic.title}</span>
+        </nav>
+        <p className="eyebrow">{moduleTitle(topic.module)}</p>
+        <h1>{topic.title}</h1>
+        <p className="definition">{topic.definition}</p>
+      </header>
 
       <section>
         <h2>Mental model</h2>
@@ -94,6 +97,8 @@ export default async function LearnTopicPage({ params }: LearnPageProps) {
         <h2>Common mistakes</h2>
         <SkillBody markdown={topic.sections.commonMistakes} />
       </section>
+
+      <RelatedGuides guides={catalog.guidesForTopic(topic.slug)} />
 
       <section>
         <h2>Related prompts</h2>
