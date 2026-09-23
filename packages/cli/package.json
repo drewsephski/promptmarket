@@ -1,0 +1,12 @@
+{
+  "name": "@promptmarket/cli",
+  "version": "0.0.1",
+  "type": "module",
+  "bin": {
+    "promptmarket": "./dist/index.js"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "commander": "^15.0.0"
+  }
+}

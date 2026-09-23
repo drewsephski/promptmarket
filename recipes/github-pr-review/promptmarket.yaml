@@ -1,0 +1,34 @@
+schemaVersion: 1
+
+name: github-pr-review
+version: 0.1.0
+
+description: >
+  Review a pull request systematically for correctness,
+  regressions, maintainability, security issues, and missing tests.
+
+author:
+  name: PromptMarket
+
+compatibility:
+  - cursor
+  - claude-code
+  - codex
+  - generic
+
+requires:
+  mcp:
+    - github
+
+capabilities:
+  filesystem: read
+  network:
+    - github.com
+  shell: false
+
+entrypoint: SKILL.md
+
+tags:
+  - github
+  - pull-request
+  - code-review
