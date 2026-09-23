@@ -1,0 +1,5 @@
+export const REGISTRY_REQUEST_TIMEOUT_MS = 15_000;
+export const MAX_REGISTRY_RESPONSE_BYTES = 32 * 1024 * 1024;
+export const MAX_PACKAGE_FILES = 256;
+export const MAX_PACKAGE_BYTES = 20 * 1024 * 1024;
+export const MAX_RECIPE_PATH_LENGTH = 512;

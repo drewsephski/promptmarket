@@ -1,6 +1,14 @@
-import { readdir, readFile, rename, rm, mkdir, writeFile } from "node:fs/promises";
+import {
+  readdir,
+  readFile,
+  rename,
+  rm,
+  mkdir,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { UnsafeRecipePathError } from "./errors.js";
+import { MAX_RECIPE_PATH_LENGTH } from "./limits.js";
 import type { RecipeFile } from "./types.js";
 
 function compareNames(left: string, right: string): number {
@@ -14,7 +22,11 @@ function compareNames(left: string, right: string): number {
 }
 
 export function assertSafeRelativePath(filePath: string): string {
-  if (filePath.length === 0 || filePath.includes("\0")) {
+  if (
+    filePath.length === 0 ||
+    filePath.length > MAX_RECIPE_PATH_LENGTH ||
+    filePath.includes("\0")
+  ) {
     throw new UnsafeRecipePathError(filePath);
   }
   if (
@@ -35,6 +47,10 @@ export function assertSafeRelativePath(filePath: string): string {
     throw new UnsafeRecipePathError(filePath);
   }
 
+  if (normalized.length > MAX_RECIPE_PATH_LENGTH) {
+    throw new UnsafeRecipePathError(filePath);
+  }
+
   return normalized;
 }
 
@@ -42,7 +58,10 @@ function toPosix(relativePath: string): string {
   return relativePath.split(path.sep).join("/");
 }
 
-export function decodeRecipeText(contents: Uint8Array, filePath: string): string {
+export function decodeRecipeText(
+  contents: Uint8Array,
+  filePath: string,
+): string {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(contents);
   } catch {
@@ -54,7 +73,9 @@ export function encodeRecipeText(content: string): Uint8Array {
   return new TextEncoder().encode(content);
 }
 
-export async function readRecipeFiles(recipePath: string): Promise<RecipeFile[]> {
+export async function readRecipeFiles(
+  recipePath: string,
+): Promise<RecipeFile[]> {
   const root = path.resolve(recipePath);
   const files: RecipeFile[] = [];
 

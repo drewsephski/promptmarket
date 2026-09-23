@@ -47,6 +47,13 @@ export class UnsafeRecipePathError extends Error {
   }
 }
 
+export class RegistryLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RegistryLimitError";
+  }
+}
+
 export class IntegrityError extends Error {
   readonly expected: string;
   readonly actual: string;

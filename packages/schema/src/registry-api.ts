@@ -47,12 +47,22 @@ export const RecipeDetailSchema = z
   })
   .strict();
 
-export const RecipePackageFileSchema = z
-  .object({
-    path: z.string().min(1),
-    content: z.string(),
-  })
-  .strict();
+export const RecipePackageFileSchema = z.discriminatedUnion("encoding", [
+  z
+    .object({
+      path: z.string().min(1),
+      encoding: z.literal("utf8"),
+      content: z.string(),
+    })
+    .strict(),
+  z
+    .object({
+      path: z.string().min(1),
+      encoding: z.literal("base64"),
+      content: z.string(),
+    })
+    .strict(),
+]);
 
 export const RecipePackageResponseSchema = z
   .object({

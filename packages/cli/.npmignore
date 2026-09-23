@@ -1,0 +1,1 @@
+# Present so the repository .gitignore does not drop dist/ from the published package.

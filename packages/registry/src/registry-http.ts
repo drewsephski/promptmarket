@@ -11,7 +11,7 @@ import {
   InvalidRecipeNameError,
   RecipeNotFoundError,
 } from "./errors.js";
-import { decodeRecipeText } from "./recipe-files.js";
+import { encodePackageFile } from "./package-encoding.js";
 import type { RecipePackage, Registry } from "./types.js";
 
 const PREFIX = "/api/registry/v1";
@@ -39,10 +39,7 @@ export function toPackageResponse(pkg: RecipePackage): RecipePackageResponse {
     version: pkg.recipe.manifest.version,
     integrity: pkg.integrity,
     files: pkg.files.map(function encodeFile(file) {
-      return {
-        path: file.path,
-        content: decodeRecipeText(file.contents, file.path),
-      };
+      return encodePackageFile(file);
     }),
   });
 }
@@ -74,7 +71,8 @@ export function registryErrorResponse(error: unknown): Response {
   if (error instanceof InvalidRecipeError) {
     return Response.json({ error: error.message }, { status: 422 });
   }
-  const message = error instanceof Error ? error.message : "Registry request failed";
+  const message =
+    error instanceof Error ? error.message : "Registry request failed";
   return Response.json({ error: message }, { status: 500 });
 }
 
@@ -103,7 +101,9 @@ export async function handleRegistryRequest(
     if (pathname === "/recipes") {
       const recipes =
         query === null ? await registry.list() : await registry.search(query);
-      const body: RecipeListResponse = RecipeListResponseSchema.parse({ recipes });
+      const body: RecipeListResponse = RecipeListResponseSchema.parse({
+        recipes,
+      });
       return Response.json(body);
     }
 

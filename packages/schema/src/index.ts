@@ -13,11 +13,13 @@ export {
 export {
   RecipeDetailSchema,
   RecipeListResponseSchema,
+  RecipePackageFileSchema,
   RecipePackageResponseSchema,
   RecipeSummarySchema,
   RegistryErrorSchema,
   type RecipeDetail,
   type RecipeListResponse,
+  type RecipePackageFileResponse,
   type RecipePackageResponse,
   type RecipeSummary,
 } from "./registry-api.js";

@@ -1,23 +1,40 @@
 {
   "name": "@promptmarket/cli",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Discover and install tested agent recipes from PromptMarket.",
+  "license": "MIT",
   "type": "module",
   "bin": {
-    "promptmarket": "./bin/promptmarket.js"
+    "promptmarket": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drewsephski/promptmarket.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://promptmarket.sh",
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup",
     "check-types": "tsc -p tsconfig.check.json",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@promptmarket/registry": "workspace:*",
-    "commander": "^15.0.0"
-  },
   "devDependencies": {
+    "@promptmarket/registry": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "26.4.1",
+    "commander": "^15.0.0",
+    "tsup": "^8.5.1",
     "typescript": "7.0.2",
     "vitest": "^3.2.4"
   }

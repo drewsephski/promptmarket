@@ -13,12 +13,16 @@ import {
   InvalidRecipeError,
   InvalidRecipeNameError,
   RecipeNotFoundError,
+  RegistryLimitError,
 } from "./errors.js";
 import {
-  decodeRecipeText,
-  encodeRecipeText,
-  normalizeRecipeFiles,
-} from "./recipe-files.js";
+  MAX_PACKAGE_BYTES,
+  MAX_PACKAGE_FILES,
+  MAX_REGISTRY_RESPONSE_BYTES,
+  REGISTRY_REQUEST_TIMEOUT_MS,
+} from "./limits.js";
+import { decodePackageFile } from "./package-encoding.js";
+import { decodeRecipeText, normalizeRecipeFiles } from "./recipe-files.js";
 import type {
   Recipe,
   RecipeFile,
@@ -46,7 +50,9 @@ function registryUrl(baseUrl: string): string {
   return href;
 }
 
-function zodMessage(error: { issues: ReadonlyArray<{ message: string }> }): string {
+function zodMessage(error: {
+  issues: ReadonlyArray<{ message: string }>;
+}): string {
   return error.issues
     .map(function formatIssue(issue) {
       return issue.message;
@@ -74,12 +80,17 @@ export class RemoteRegistry implements Registry {
 
   async get(name: string): Promise<Recipe> {
     const recipeName = parseRecipeName(name);
-    const payload = await this.request(`/recipes/${encodeURIComponent(recipeName)}`);
+    const payload = await this.request(
+      `/recipes/${encodeURIComponent(recipeName)}`,
+    );
     const parsed = RecipeDetailSchema.safeParse(payload);
     if (!parsed.success) {
       throw new Error(`Invalid registry response: ${zodMessage(parsed.error)}`);
     }
-    if (parsed.data.name !== recipeName || parsed.data.skill.name !== recipeName) {
+    if (
+      parsed.data.name !== recipeName ||
+      parsed.data.skill.name !== recipeName
+    ) {
       throw new Error(
         `Invalid registry response: recipe name "${parsed.data.name}" does not match "${recipeName}"`,
       );
@@ -127,12 +138,15 @@ export class RemoteRegistry implements Registry {
       );
     }
 
-    const decoded: RecipeFile[] = parsed.data.files.map(function decodeFile(file) {
-      return {
-        path: file.path,
-        contents: encodeRecipeText(file.content),
-      };
-    });
+    const decoded: RecipeFile[] = parsed.data.files.map(
+      function decodeFile(file) {
+        return {
+          path: file.path,
+          contents: decodePackageFile(file),
+        };
+      },
+    );
+    assertPackageWithinLimits(decoded);
     const files = normalizeRecipeFiles(decoded);
     const integrity = digestFiles(files);
     if (integrity !== parsed.data.integrity) {
@@ -150,7 +164,9 @@ export class RemoteRegistry implements Registry {
       manifestFile
         ? decodeRecipeText(manifestFile.contents, manifestFile.path)
         : undefined,
-      skillFile ? decodeRecipeText(skillFile.contents, skillFile.path) : undefined,
+      skillFile
+        ? decodeRecipeText(skillFile.contents, skillFile.path)
+        : undefined,
     );
     if (!result.ok) {
       throw new InvalidRecipeError(recipeName, result.errors);
@@ -186,19 +202,34 @@ export class RemoteRegistry implements Registry {
 
   private async request(suffix: string): Promise<unknown> {
     const url = `${this.baseUrl}${suffix}`;
+    const signal = AbortSignal.timeout(REGISTRY_REQUEST_TIMEOUT_MS);
     let response: Response;
+    let text: string;
     try {
       response = await this.fetchImpl(url, {
         headers: { accept: "application/json" },
+        signal,
       });
+      text = await readBoundedBody(response, MAX_REGISTRY_RESPONSE_BYTES);
     } catch (error) {
+      if (error instanceof RegistryLimitError) {
+        throw error;
+      }
+      if (signal.aborted) {
+        throw new Error("Registry request timed out");
+      }
       const message = error instanceof Error ? error.message : "request failed";
       throw new Error(`Registry request failed: ${message}`);
     }
 
-    const payload: unknown = await response.json().catch(function invalidJson() {
-      return null;
-    });
+    let payload: unknown = null;
+    if (text.length > 0) {
+      try {
+        payload = JSON.parse(text) as unknown;
+      } catch {
+        payload = null;
+      }
+    }
     if (response.ok) {
       return payload;
     }
@@ -212,6 +243,91 @@ export class RemoteRegistry implements Registry {
     }
     throw new Error(message);
   }
+}
+
+export function assertPackageWithinLimits(
+  files: RecipeFile[],
+  limits: { maxFiles?: number; maxBytes?: number } = {},
+): void {
+  const maxFiles = limits.maxFiles ?? MAX_PACKAGE_FILES;
+  const maxBytes = limits.maxBytes ?? MAX_PACKAGE_BYTES;
+  if (files.length > maxFiles) {
+    throw new RegistryLimitError(
+      `Registry package has ${files.length} files, exceeding the limit of ${maxFiles}`,
+    );
+  }
+
+  let total = 0;
+  for (const file of files) {
+    total += file.contents.byteLength;
+    if (total > maxBytes) {
+      throw new RegistryLimitError(
+        `Registry package exceeds ${maxBytes} bytes`,
+      );
+    }
+  }
+}
+
+function contentLength(response: Response): number | null {
+  const header = response.headers.get("content-length");
+  if (header === null) {
+    return null;
+  }
+  const length = Number(header);
+  if (!Number.isFinite(length) || length < 0) {
+    return null;
+  }
+  return length;
+}
+
+export async function readBoundedBody(
+  response: Response,
+  maxBytes: number,
+): Promise<string> {
+  const declared = contentLength(response);
+  if (declared !== null && declared > maxBytes) {
+    await response.body?.cancel();
+    throw new RegistryLimitError(`Registry response exceeds ${maxBytes} bytes`);
+  }
+
+  if (!response.body) {
+    const text = await response.text();
+    if (Buffer.byteLength(text) > maxBytes) {
+      throw new RegistryLimitError(
+        `Registry response exceeds ${maxBytes} bytes`,
+      );
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new RegistryLimitError(
+        `Registry response exceeds ${maxBytes} bytes`,
+      );
+    }
+    chunks.push(value);
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
 }
 
 function parseRecipeName(name: string): string {

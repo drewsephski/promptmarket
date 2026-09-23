@@ -103,7 +103,7 @@ export function createProgram(io: CliIo, state: CommandState): Command {
   program
     .name("promptmarket")
     .description("Search, inspect, validate, and install PromptMarket recipes")
-    .version("0.0.1")
+    .version("0.1.0")
     .configureOutput({
       writeOut: function writeOut(message: string) {
         io.stdout(message);

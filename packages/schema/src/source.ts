@@ -9,7 +9,7 @@ export const RecipeSourceSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("registry"),
-      url: z.url(),
+      url: z.url({ protocol: /^https?$/ }),
     })
     .strict(),
 ]);
