@@ -1,136 +1,178 @@
-import type { RecipeSummary } from "@promptmarket/registry";
+import { MODULES, loadContentCatalog } from "@promptmarket/content";
 import { Bezel } from "../components/bezel";
 import { CommandBlock } from "../components/command-block";
+import { FlowDiagram } from "../components/flow-diagram";
 import { ArrowMark } from "../components/marks";
-import { catalogRegistry } from "../lib/catalog";
-import {
-  HOSTED_MCP_URL,
-  latestInstallCommand,
-  searchQuery,
-} from "../lib/present";
+import { HOSTED_MCP_URL } from "../lib/present";
 
-interface HomeProps {
-  searchParams: Promise<{ q?: string | string[] }>;
-}
+const uses = [
+  {
+    href: "/learn/structured-data",
+    title: "Structured data",
+    text: "Turn messy text into fields.",
+  },
+  {
+    href: "/learn/classification",
+    title: "Classification",
+    text: "Pick a label from a list you control.",
+  },
+  {
+    href: "/learn/question-answering",
+    title: "Question answering",
+    text: "Answer from context you provide.",
+  },
+  {
+    href: "/learn/summarization",
+    title: "Summarization",
+    text: "Keep the facts a specific reader needs.",
+  },
+  {
+    href: "/learn/agents",
+    title: "Agents",
+    text: "Request an action. Your code runs it.",
+  },
+  {
+    href: "/learn/what-llms-are-good-at",
+    title: "Translation",
+    text: "Same meaning, with terms you refuse to paraphrase.",
+  },
+];
 
-export default async function Home({ searchParams }: HomeProps) {
-  const query = searchQuery((await searchParams).q).trim();
-  let recipes: RecipeSummary[] = [];
-  let error: string | null = null;
-  try {
-    const registry = catalogRegistry();
-    recipes = query ? await registry.search(query) : await registry.list();
-  } catch (caught) {
-    error = caught instanceof Error ? caught.message : "Could not load recipes";
-  }
+const patterns = [
+  {
+    href: "/learn/structured-outputs",
+    title: "Structured outputs",
+    text: "Require data that matches a known shape.",
+  },
+  {
+    href: "/learn/rag",
+    title: "RAG",
+    text: "Fetch useful information, then put it in the prompt.",
+  },
+  {
+    href: "/learn/tool-calling",
+    title: "Tool calling",
+    text: "Give the model a list of actions it can request.",
+  },
+  {
+    href: "/learn/workflows",
+    title: "Workflows",
+    text: "Split one problem into predictable calls.",
+  },
+  {
+    href: "/learn/agentic-loops",
+    title: "Agentic loops",
+    text: "Choose actions until a stopping condition.",
+  },
+  {
+    href: "/learn/evals",
+    title: "Evals",
+    text: "The unit test for a model’s behavior.",
+  },
+];
+
+export default function Home() {
+  const catalog = loadContentCatalog();
+  const featured = [
+    "structured-data-extractor",
+    "rag-grounded-answer",
+    "tool-selection-router",
+    "support-ticket-triage",
+  ].map(function lookup(slug) {
+    return catalog.getPrompt(slug);
+  });
+  const lessonCount = catalog.topics.length;
+  const moduleCount = MODULES.length;
 
   return (
     <main>
-      <section className="hero">
+      <section className="hero hero-simple">
         <div className="hero-copy">
-          <p className="eyebrow rise" style={{ animationDelay: "40ms" }}>
-            Registry for agent skills
-          </p>
-          <h1 className="rise" style={{ animationDelay: "120ms" }}>
-            Validated agent recipes for AI coding agents.
+          <p className="eyebrow">PromptMarket</p>
+          <h1 className="hero-stack">
+            Learn the pattern.
+            <br />
+            Grab the prompt.
+            <br />
+            Build.
           </h1>
-          <p className="lede rise" style={{ animationDelay: "200ms" }}>
-            Discover a recipe, inspect what it declares, then install it into{" "}
-            <code>.agents/skills</code> or load it through the hosted MCP
-            server. To publish one, <a href="/create">create it</a> and submit a
-            pull request.
+          <p className="lede">
+            Practical AI engineering for developers. Understand RAG, tools,
+            agents, structured outputs, and evals, then copy the prompt pattern
+            into your app.
           </p>
-        </div>
-        <div className="channels">
-          <div className="rise" style={{ animationDelay: "280ms" }}>
-            <Bezel coreClassName="channel">
-              <h2>Install with the CLI</h2>
-              <CommandBlock
-                command={latestInstallCommand("github-pr-review")}
-                label="Copy install command"
-              />
-            </Bezel>
-          </div>
-          <div
-            className="rise channel-offset"
-            style={{ animationDelay: "360ms" }}
-          >
-            <Bezel coreClassName="channel">
-              <h2>Hosted MCP</h2>
-              <CommandBlock
-                command={HOSTED_MCP_URL}
-                label="Copy MCP endpoint"
-              />
-            </Bezel>
-          </div>
-        </div>
-      </section>
-
-      <section className="chapter" aria-labelledby="catalog-heading">
-        <div className="chapter-head">
-          <p className="eyebrow">Catalog</p>
-          <h2 id="catalog-heading">Recipes</h2>
-        </div>
-        <form className="search" action="/" method="get" role="search">
-          <label htmlFor="recipe-search">Search the registry</label>
-          <Bezel coreClassName="search-core">
-            <input
-              id="recipe-search"
-              name="q"
-              defaultValue={query}
-              placeholder="release readiness, database, pull request"
-              autoComplete="off"
-            />
-            <button type="submit" className="pill">
-              <span>Search</span>
+          <div className="cta-row">
+            <a className="pill" href="/learn">
+              <span>Start learning</span>
               <span className="pill-mark" aria-hidden="true">
                 <ArrowMark />
               </span>
-            </button>
-          </Bezel>
-        </form>
-        {query ? (
-          <p className="note">
-            Results for “{query}”. <a href="/">Clear</a>
+            </a>
+            <a className="pill pill-quiet" href="/prompts">
+              <span>Browse prompts</span>
+              <span className="pill-mark" aria-hidden="true">
+                <ArrowMark />
+              </span>
+            </a>
+          </div>
+          <p className="mcp-line">
+            Agents can read the same material at{" "}
+            <a href="/docs">{HOSTED_MCP_URL}</a>
           </p>
-        ) : null}
-        {error ? <p className="error">{error}</p> : null}
-        {!error && recipes.length === 0 ? (
-          <p className="empty">No recipes matched.</p>
-        ) : null}
-        <div className="catalog">
-          {recipes.map(function renderRecipe(recipe, index) {
+        </div>
+      </section>
+
+      <section className="band" aria-labelledby="uses-heading">
+        <div className="chapter-head">
+          <p className="eyebrow">Start here</p>
+          <h2 id="uses-heading">What LLMs are useful for</h2>
+        </div>
+        <div className="tile-grid">
+          {uses.map(function renderUse(item) {
             return (
-              <a
-                className="entry rise"
-                key={recipe.name}
-                href={`/recipes/${recipe.name}`}
-                style={{ animationDelay: `${80 + index * 60}ms` }}
-              >
+              <a className="tile" href={item.href} key={item.href}>
+                <Bezel coreClassName="tile-core">
+                  <strong>{item.title}</strong>
+                  <p>{item.text}</p>
+                </Bezel>
+              </a>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="band" aria-labelledby="patterns-heading">
+        <div className="chapter-head">
+          <p className="eyebrow">Core patterns</p>
+          <h2 id="patterns-heading">How the pieces fit</h2>
+        </div>
+        <div className="tile-grid">
+          {patterns.map(function renderPattern(item) {
+            return (
+              <a className="tile" href={item.href} key={item.href}>
+                <Bezel coreClassName="tile-core">
+                  <strong>{item.title}</strong>
+                  <p>{item.text}</p>
+                </Bezel>
+              </a>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="band" aria-labelledby="prompts-heading">
+        <div className="chapter-head">
+          <p className="eyebrow">Featured prompts</p>
+          <h2 id="prompts-heading">Patterns you can copy</h2>
+        </div>
+        <div className="catalog">
+          {featured.map(function renderPrompt(prompt) {
+            return (
+              <a className="entry" href={prompt.href} key={prompt.slug}>
                 <Bezel coreClassName="entry-core">
-                  <span className="entry-index">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
                   <div className="entry-body">
-                    <h3>{recipe.name}</h3>
-                    <p>{recipe.description}</p>
-                    <div className="entry-meta">
-                      <span className="version">{recipe.version}</span>
-                      <div className="tags">
-                        {recipe.tags.map(function renderTag(tag) {
-                          return (
-                            <span className="tag" key={tag}>
-                              {tag}
-                            </span>
-                          );
-                        })}
-                      </div>
-                      <div className="compat" aria-label="Compatibility">
-                        {recipe.compatibility.map(function renderAgent(agent) {
-                          return <span key={agent}>{agent}</span>;
-                        })}
-                      </div>
-                    </div>
+                    <h3>{prompt.title}</h3>
+                    <p>{prompt.description}</p>
                   </div>
                   <span className="pill-mark entry-arrow" aria-hidden="true">
                     <ArrowMark />
@@ -142,44 +184,40 @@ export default async function Home({ searchParams }: HomeProps) {
         </div>
       </section>
 
-      <section className="chapter" aria-labelledby="how-heading">
+      <section className="band ladder-band" aria-labelledby="ladder-heading">
+        <div>
+          <div className="chapter-head">
+            <p className="eyebrow">Start simple</p>
+            <h2 id="ladder-heading">
+              Only add complexity when the previous step is insufficient.
+            </h2>
+          </div>
+          <p className="lede">
+            Later rungs cost more. They are not a maturity score.{" "}
+            <a href="/learn/optimization-ladder">Read the ladder</a>.
+          </p>
+        </div>
+        <FlowDiagram id="ladder" />
+      </section>
+
+      <section className="band" aria-labelledby="agent-heading">
         <div className="chapter-head">
-          <p className="eyebrow">Method</p>
-          <h2 id="how-heading">Discover, inspect, then install.</h2>
+          <p className="eyebrow">From your agent</p>
+          <h2 id="agent-heading">The same lessons and prompts, over MCP.</h2>
         </div>
-        <div className="steps">
-          <article className="rise" style={{ animationDelay: "40ms" }}>
-            <Bezel coreClassName="step">
-              <span className="numeral">01</span>
-              <strong>Discover</strong>
-              <p className="note">
-                Search the catalog here, or with{" "}
-                <code>promptmarket search</code>.
-              </p>
-            </Bezel>
-          </article>
-          <article className="rise" style={{ animationDelay: "120ms" }}>
-            <Bezel className="step-shift" coreClassName="step">
-              <span className="numeral">02</span>
-              <strong>Inspect</strong>
-              <p className="note">
-                Read the procedure, the capabilities it declares, and any MCP
-                server it expects.
-              </p>
-            </Bezel>
-          </article>
-          <article className="rise" style={{ animationDelay: "200ms" }}>
-            <Bezel coreClassName="step">
-              <span className="numeral">03</span>
-              <strong>Install or use</strong>
-              <p className="note">
-                <code>promptmarket add</code> pins a version in{" "}
-                <code>promptmarket.lock</code>. An MCP client can load the same
-                recipe without installing it.
-              </p>
-            </Bezel>
-          </article>
-        </div>
+        <Bezel coreClassName="panel">
+          <p>
+            {lessonCount} lessons across {moduleCount} modules, plus the prompt
+            gallery. Installable skills stay available when a task is a
+            procedure rather than a prompt.
+          </p>
+          <CommandBlock command={HOSTED_MCP_URL} label="Copy MCP endpoint" />
+          <p className="note">
+            <a href="/docs">Setup for Cursor and the CLI</a>
+            {" · "}
+            <a href="/recipes">Skills</a>
+          </p>
+        </Bezel>
       </section>
     </main>
   );

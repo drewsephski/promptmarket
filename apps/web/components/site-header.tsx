@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 
 const links = [
-  { href: "/create", label: "Create" },
+  { href: "/learn", label: "Learn" },
+  { href: "/prompts", label: "Prompts" },
   { href: "/docs", label: "Docs" },
-  { href: "/contribute", label: "Contribute" },
   { href: "https://github.com/drewsephski/promptmarket", label: "GitHub" },
 ];
 
@@ -81,7 +81,7 @@ export function SiteHeader() {
         <p className="eyebrow overlay-kicker">Index</p>
         <nav className="overlay-links" aria-label="Mobile">
           <a href="/" onClick={handleClose}>
-            Recipes
+            Home
           </a>
           {links.map(function renderOverlayLink(link) {
             return (
@@ -99,10 +99,13 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="footer">
-      <p>
-        Validated agent recipes. Installed with the CLI or loaded through MCP.
-      </p>
-      <a href="/contribute">Contribute a recipe</a>
+      <p>Learn the pattern. Grab the prompt. Build.</p>
+      <span className="footer-links">
+        <a href="/learn">Learn</a>
+        <a href="/prompts">Prompts</a>
+        <a href="/recipes">Skills</a>
+        <a href="/docs">Docs</a>
+      </span>
     </footer>
   );
 }

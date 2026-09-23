@@ -26,6 +26,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.1.0
         version: 2.1.0
+      '@promptmarket/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@promptmarket/mcp':
         specifier: workspace:*
         version: link:../../packages/mcp
@@ -82,6 +85,9 @@ importers:
         specifier: ^2.8.1
         version: 2.9.1
     devDependencies:
+      '@promptmarket/content':
+        specifier: workspace:*
+        version: link:../content
       '@promptmarket/registry':
         specifier: workspace:*
         version: link:../registry
@@ -97,6 +103,25 @@ importers:
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(postcss@8.5.23)(supports-color@7.2.0)(typescript@7.0.2)(yaml@2.9.1)
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@26.4.1)(supports-color@7.2.0)(yaml@2.9.1)
+
+  packages/content:
+    dependencies:
+      yaml:
+        specifier: ^2.8.1
+        version: 2.9.1
+    devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: 26.4.1
+        version: 26.4.1
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -145,6 +170,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.1.0
         version: 2.1.0
+      '@promptmarket/content':
+        specifier: workspace:*
+        version: link:../content
       '@promptmarket/registry':
         specifier: workspace:*
         version: link:../registry

@@ -1,4 +1,26 @@
+import type { Metadata } from "next";
+
 export const HOSTED_MCP_URL = "https://promptmarket.sh/mcp";
+export const SITE_URL = "https://promptmarket.sh";
+
+export function pageMetadata(
+  title: string,
+  description: string,
+  path: string,
+): Metadata {
+  return {
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      title,
+      description,
+      url: path,
+      siteName: "PromptMarket",
+      type: "article",
+    },
+  };
+}
 
 export function latestInstallCommand(name: string): string {
   return `pnpm dlx @promptmarket/cli add ${name}`;

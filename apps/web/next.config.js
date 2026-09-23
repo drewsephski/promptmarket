@@ -8,12 +8,17 @@ const nextConfig = {
   agentRules: false,
   outputFileTracingRoot: repoRoot,
   outputFileTracingIncludes: {
-    "/": ["../../recipes/**/*"],
-    "/docs": ["../../recipes/**/*"],
+    "/": ["../../recipes/**/*", "../../content/**/*"],
+    "/docs": ["../../recipes/**/*", "../../content/**/*"],
+    "/learn": ["../../content/**/*"],
+    "/learn/*": ["../../content/**/*"],
+    "/prompts": ["../../recipes/**/*", "../../content/**/*"],
+    "/prompts/*": ["../../content/**/*"],
+    "/recipes": ["../../recipes/**/*"],
     "/recipes/*": ["../../recipes/**/*"],
     "/api/registry/v1": ["../../recipes/**/*"],
     "/api/registry/v1/*": ["../../recipes/**/*"],
-    "/mcp": ["../../recipes/**/*"],
+    "/mcp": ["../../recipes/**/*", "../../content/**/*"],
   },
 };
 

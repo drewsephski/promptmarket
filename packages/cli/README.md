@@ -1,8 +1,16 @@
 # @promptmarket/cli
 
-Discover, validate, and submit agent recipes on [PromptMarket](https://promptmarket.sh).
+Search lessons and prompts, or install agent skills, on [PromptMarket](https://promptmarket.sh).
 
 Requires Node.js 22 or newer.
+
+## Prompts and lessons
+
+```bash
+pnpm dlx @promptmarket/cli search "structured extraction"
+pnpm dlx @promptmarket/cli show structured-data-extractor
+pnpm dlx @promptmarket/cli learn rag
+```
 
 ## Install
 

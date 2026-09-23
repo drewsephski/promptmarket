@@ -1,6 +1,9 @@
 import path from "node:path";
 import { FileRegistry } from "@promptmarket/registry";
 import { describe, expect, test } from "vitest";
+import { generateStaticParams as learnParams } from "../app/learn/[slug]/page";
+import { generateStaticParams as promptParams } from "../app/prompts/[slug]/page";
+import { filterGallery, promptGalleryItem } from "../lib/gallery";
 import { parseSkillMarkdown } from "../lib/skill-markdown";
 import {
   exactInstallCommand,
@@ -60,5 +63,42 @@ describe("catalog presentation", function catalogPresentation() {
     expect(blocks[1]).toMatchObject({ type: "paragraph" });
     expect(blocks[2]).toMatchObject({ type: "list", ordered: true });
     expect(JSON.stringify(blocks)).not.toContain("<script");
+  });
+
+  test("builds the learn and prompt routes and filters the gallery", function buildsRoutes() {
+    const lessons = learnParams();
+    const prompts = promptParams();
+    const extractor = prompts.find(function matches(item) {
+      return item.slug === "structured-data-extractor";
+    });
+
+    expect(
+      lessons.map(function slugOf(item) {
+        return item.slug;
+      }),
+    ).toEqual(expect.arrayContaining(["rag", "evals"]));
+    expect(extractor).toBeDefined();
+    const visible = filterGallery(
+      [
+        promptGalleryItem({
+          slug: "structured-data-extractor",
+          title: "Structured data extractor",
+          description: "Extract a JSON object from messy user text.",
+          category: "extraction",
+          tags: ["json"],
+          difficulty: "beginner",
+          whenToUse: "When the shape is known.",
+          whyItWorks: "The schema is the contract.",
+          commonMistakes: ["No schema"],
+          relatedTopics: ["structured-outputs"],
+          relatedPrompts: [],
+          body: "Use {{input}}",
+          variables: ["input"],
+          href: "/prompts/structured-data-extractor",
+        }),
+      ],
+      { query: "json", category: "extraction", kind: "prompt" },
+    );
+    expect(visible).toHaveLength(1);
   });
 });

@@ -466,4 +466,35 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(io.out()).toContain("0.1.0\tsha256-");
     expect(io.err()).toBe("");
   });
+
+  test("show and learn print prompt content", async function showsPromptAndLesson() {
+    const io = captureIo();
+    const shown = await run(
+      ["node", "promptmarket", "show", "structured-data-extractor", "--json"],
+      io,
+    );
+    const shownPayload = JSON.parse(io.out()) as {
+      ok: boolean;
+      kind: string;
+      prompt: { name: string; body: string; variables: string[] };
+    };
+    const learnIo = captureIo();
+    const learned = await run(
+      ["node", "promptmarket", "learn", "rag", "--json"],
+      learnIo,
+    );
+    const lesson = JSON.parse(learnIo.out()) as {
+      ok: boolean;
+      topic: { slug: string; url: string };
+    };
+
+    expect(shown).toBe(0);
+    expect(shownPayload.kind).toBe("prompt");
+    expect(shownPayload.prompt.name).toBe("structured-data-extractor");
+    expect(shownPayload.prompt.variables).toContain("input");
+    expect(shownPayload.prompt.body).toContain("{{schema}}");
+    expect(learned).toBe(0);
+    expect(lesson.topic.slug).toBe("rag");
+    expect(lesson.topic.url).toBe("https://promptmarket.sh/learn/rag");
+  });
 });

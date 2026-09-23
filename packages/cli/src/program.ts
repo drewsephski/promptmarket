@@ -1,5 +1,11 @@
 import { Command, CommanderError } from "commander";
 import {
+  ContentNotFoundError,
+  loadContentCatalog,
+  type ContentCatalog,
+  type PromptDocument,
+} from "@promptmarket/content";
+import {
   findOutdatedRecipes,
   installFromLockfile,
   installRecipe,
@@ -73,6 +79,12 @@ function inspectRecipe(recipe: Recipe) {
   };
 }
 
+const SITE_ORIGIN = "https://promptmarket.sh";
+
+function contentCatalog(contentDir?: string): ContentCatalog {
+  return loadContentCatalog(contentDir ? { contentDir } : undefined);
+}
+
 function writeFailure(
   io: CliIo,
   state: CommandState,
@@ -96,9 +108,7 @@ export function createProgram(
   const program = new Command();
   program
     .name("promptmarket")
-    .description(
-      "Search, inspect, validate, pack, and submit PromptMarket recipes",
-    )
+    .description("Search prompts and lessons, or install PromptMarket skills")
     .version("0.3.0")
     .configureOutput({
       writeOut: function writeOut(message: string) {
@@ -112,30 +122,61 @@ export function createProgram(
 
   program
     .command("search")
-    .description("Search recipes by name, description, and tags")
+    .description("Search prompts, then skills, by name, description, and tags")
     .argument("<query>", "Search query")
     .option("--json", "Print deterministic JSON to stdout")
     .option("--recipes <dir>", "Read recipes from a local directory")
     .option("--registry <url>", "Registry API base URL")
+    .option("--content <dir>", "Read lessons and prompts from a directory")
     .action(async function searchAction(
       query: string,
-      options: { json?: boolean; recipes?: string; registry?: string },
+      options: {
+        json?: boolean;
+        recipes?: string;
+        registry?: string;
+        content?: string;
+      },
     ) {
       try {
+        const prompts = contentCatalog(options.content).searchPrompts(query);
         const recipes = await createRegistry(options).search(query);
         const summaries = recipes.map(summarizeRecipe);
         if (options.json) {
-          io.stdout(json({ ok: true, query, recipes: summaries }));
-          return;
-        }
-        if (summaries.length === 0) {
-          io.stdout("No recipes matched.\n");
-          return;
-        }
-        for (const recipe of summaries) {
           io.stdout(
-            `${recipe.name}\t${recipe.version}\n${recipe.description}\n`,
+            json({
+              ok: true,
+              query,
+              prompts: prompts.map(function summarizePromptHit(prompt) {
+                return {
+                  name: prompt.name,
+                  title: prompt.title,
+                  description: prompt.description,
+                  category: prompt.category,
+                  tags: prompt.tags,
+                };
+              }),
+              recipes: summaries,
+            }),
           );
+          return;
+        }
+        if (prompts.length === 0 && summaries.length === 0) {
+          io.stdout("No prompts or skills matched.\n");
+          return;
+        }
+        if (prompts.length > 0) {
+          io.stdout("Prompts\n");
+          for (const prompt of prompts) {
+            io.stdout(`${prompt.name}\n${prompt.description}\n`);
+          }
+        }
+        if (summaries.length > 0) {
+          io.stdout("Skills\n");
+          for (const recipe of summaries) {
+            io.stdout(
+              `${recipe.name}\t${recipe.version}\n${recipe.description}\n`,
+            );
+          }
         }
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
@@ -349,6 +390,136 @@ export function createProgram(
         for (const recipe of outdated) {
           io.stdout(`${recipe.name}\t${recipe.version}\t${recipe.latest}\n`);
         }
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("show")
+    .description("Print a prompt, or a skill when the name is not a prompt")
+    .argument("<name>", "Prompt or skill name")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--recipes <dir>", "Read recipes from a local directory")
+    .option("--registry <url>", "Registry API base URL")
+    .option("--content <dir>", "Read lessons and prompts from a directory")
+    .action(async function showAction(
+      name: string,
+      options: {
+        json?: boolean;
+        recipes?: string;
+        registry?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const catalog = contentCatalog(options.content);
+        let prompt: PromptDocument | undefined;
+        try {
+          prompt = catalog.getPrompt(name);
+        } catch (error) {
+          if (!(error instanceof ContentNotFoundError)) {
+            throw error;
+          }
+        }
+        if (prompt) {
+          if (options.json) {
+            io.stdout(
+              json({
+                ok: true,
+                kind: "prompt",
+                prompt: {
+                  name: prompt.slug,
+                  title: prompt.title,
+                  description: prompt.description,
+                  category: prompt.category,
+                  variables: prompt.variables,
+                  body: prompt.body,
+                },
+              }),
+            );
+            return;
+          }
+          io.stdout(
+            [
+              prompt.title,
+              `${prompt.category} · ${prompt.difficulty}`,
+              "",
+              prompt.description,
+              "",
+              prompt.variables.length > 0
+                ? `Variables: ${prompt.variables.join(", ")}`
+                : "Variables: none",
+              "",
+              prompt.body,
+              "",
+            ].join("\n"),
+          );
+          return;
+        }
+
+        const ref = parseRecipeRef(name);
+        const recipe = await createRegistry(options).get(ref.name, ref.version);
+        if (options.json) {
+          io.stdout(
+            json({ ok: true, kind: "skill", recipe: inspectRecipe(recipe) }),
+          );
+          return;
+        }
+        io.stdout(
+          [
+            `name: ${recipe.manifest.name}`,
+            `version: ${recipe.manifest.version}`,
+            `description: ${recipe.skill.description}`,
+            "",
+            recipe.skill.body,
+            "",
+          ].join("\n"),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("learn")
+    .description("Print a short lesson and its URL")
+    .argument("<slug>", "Lesson slug, such as rag")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--content <dir>", "Read lessons and prompts from a directory")
+    .action(function learnAction(
+      slug: string,
+      options: { json?: boolean; content?: string },
+    ) {
+      try {
+        const topic = contentCatalog(options.content).getTopic(slug);
+        const url = `${SITE_ORIGIN}${topic.href}`;
+        if (options.json) {
+          io.stdout(
+            json({
+              ok: true,
+              topic: {
+                slug: topic.slug,
+                title: topic.title,
+                definition: topic.definition,
+                mentalModel: topic.mentalModel,
+                url,
+              },
+            }),
+          );
+          return;
+        }
+        io.stdout(
+          [
+            topic.title,
+            url,
+            "",
+            topic.definition,
+            "",
+            topic.mentalModel,
+            "",
+          ].join("\n"),
+        );
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
       }

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.1.0",
+    "@promptmarket/content": "workspace:*",
     "@promptmarket/mcp": "workspace:*",
     "@promptmarket/registry": "workspace:*",
     "@promptmarket/schema": "workspace:*",

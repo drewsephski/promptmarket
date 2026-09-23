@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.1.0",
+    "@promptmarket/content": "workspace:*",
     "@promptmarket/registry": "workspace:*",
     "zod": "^4.6.5"
   },

@@ -1,3 +1,5 @@
+import { cpSync } from "node:fs";
+import path from "node:path";
 import { defineConfig } from "tsup";
 
 export default defineConfig({
@@ -9,4 +11,11 @@ export default defineConfig({
   sourcemap: false,
   clean: true,
   noExternal: [/@promptmarket\//, "zod", "commander"],
+  onSuccess() {
+    cpSync(
+      path.resolve(import.meta.dirname, "../../content"),
+      path.resolve(import.meta.dirname, "dist/content"),
+      { recursive: true },
+    );
+  },
 });

@@ -24,11 +24,17 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://promptmarket.sh"),
   title: {
     default: "PromptMarket",
     template: "%s · PromptMarket",
   },
-  description: "Validated agent recipes for AI coding agents.",
+  description:
+    "Learn AI engineering, then copy the prompt patterns into your app.",
+  openGraph: {
+    siteName: "PromptMarket",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

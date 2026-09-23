@@ -163,6 +163,31 @@ describe("promptmarket mcp", function promptmarketMcp() {
 
     expect(tools).toEqual([
       {
+        name: "search_prompts",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
+        name: "get_prompt",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
+        name: "search_learn",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
+        name: "get_learn_topic",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
+        name: "recommend_prompt",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
         name: "search_recipes",
         readOnlyHint: true,
         destructiveHint: false,
@@ -329,5 +354,61 @@ describe("promptmarket mcp", function promptmarketMcp() {
     expect(JSON.stringify(listed.structuredContent)).not.toContain("# Current");
     expect(missing.isError).toBe(true);
     expect(missing.content?.[0]?.text).toContain("9.9.9");
+  });
+
+  test("search_prompts and get_prompt return the extractor", async function searchesPrompts() {
+    const client = await connect(registryWith([]));
+    const searched = (await client.callTool({
+      name: "search_prompts",
+      arguments: { query: "extract JSON messy text", category: "extraction" },
+    })) as ToolResult;
+    const loaded = (await client.callTool({
+      name: "get_prompt",
+      arguments: { name: "structured-data-extractor" },
+    })) as ToolResult;
+    const missing = (await client.callTool({
+      name: "get_prompt",
+      arguments: { name: "not-a-prompt" },
+    })) as ToolResult;
+
+    expect(searched.isError).toBeFalsy();
+    const found = searched.structuredContent as {
+      prompts: Array<{ name: string }>;
+    };
+    expect(found.prompts[0]?.name).toBe("structured-data-extractor");
+    expect(loaded.structuredContent).toMatchObject({
+      title: "Structured data extractor",
+      category: "extraction",
+      variables: ["schema", "input"],
+    });
+    expect(JSON.stringify(loaded.structuredContent)).toContain("{{input}}");
+    expect(missing.isError).toBe(true);
+  });
+
+  test("search_learn and get_learn_topic explain RAG", async function explainsRag() {
+    const client = await connect(registryWith([]));
+    const searched = (await client.callTool({
+      name: "search_learn",
+      arguments: { query: "RAG" },
+    })) as ToolResult;
+    const loaded = (await client.callTool({
+      name: "get_learn_topic",
+      arguments: { slug: "rag" },
+    })) as ToolResult;
+
+    const found = searched.structuredContent as {
+      topics: Array<{ slug: string }>;
+    };
+    expect(found.topics[0]?.slug).toBe("rag");
+    const topic = loaded.structuredContent as {
+      definition: string;
+      relatedPrompts: Array<{ name: string }>;
+    };
+    expect(topic.definition.toLowerCase()).toContain("passages");
+    expect(
+      topic.relatedPrompts.map(function nameOf(prompt) {
+        return prompt.name;
+      }),
+    ).toContain("rag-grounded-answer");
   });
 });

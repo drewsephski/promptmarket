@@ -72,8 +72,8 @@ export default async function RecipePage({
     return (
       <main>
         <header className="recipe-head">
-          <a className="back rise" href="/">
-            All recipes
+          <a className="back" href="/recipes">
+            All skills
           </a>
           <h1 className="rise" style={{ animationDelay: "80ms" }}>
             {recipe.manifest.name}
