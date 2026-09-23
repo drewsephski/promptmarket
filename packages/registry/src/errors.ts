@@ -1,5 +1,15 @@
 import type { RecipeIssue } from "./types.js";
 
+export class InvalidRecipeNameError extends Error {
+  readonly recipeName: string;
+
+  constructor(recipeName: string) {
+    super(`Invalid recipe name: ${recipeName}`);
+    this.name = "InvalidRecipeNameError";
+    this.recipeName = recipeName;
+  }
+}
+
 export class RecipeNotFoundError extends Error {
   readonly recipeName: string;
 

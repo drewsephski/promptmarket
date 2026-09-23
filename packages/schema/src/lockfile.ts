@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { SemVerSchema } from "./semver.js";
 import { SkillNameSchema } from "./skill.js";
 
 export const LockfileEntrySchema = z
   .object({
     name: SkillNameSchema,
-    version: z.string().min(1),
+    version: SemVerSchema,
     source: z.string().min(1),
     integrity: z.string().regex(/^sha256-[A-Za-z0-9+/]+=*$/),
   })

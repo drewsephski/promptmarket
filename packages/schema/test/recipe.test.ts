@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   RecipeManifestSchema,
+  SemVerSchema,
   SkillFrontmatterSchema,
   SkillNameSchema,
 } from "../src/index.js";
@@ -11,6 +12,22 @@ const validManifest = {
   version: "0.1.0",
   author: { name: "PromptMarket" },
 };
+
+describe("SemVerSchema", function semverSchema() {
+  test("accepts semantic versions", function acceptsSemanticVersions() {
+    expect(SemVerSchema.safeParse("0.1.0").success).toBe(true);
+    expect(SemVerSchema.safeParse("1.4.2").success).toBe(true);
+    expect(SemVerSchema.safeParse("1.0.0-alpha.1").success).toBe(true);
+    expect(SemVerSchema.safeParse("1.0.0+build.5").success).toBe(true);
+  });
+
+  test("rejects names that are not semantic versions", function rejectsNonSemver() {
+    expect(SemVerSchema.safeParse("banana").success).toBe(false);
+    expect(SemVerSchema.safeParse("1.0").success).toBe(false);
+    expect(SemVerSchema.safeParse("v1.0.0").success).toBe(false);
+    expect(SemVerSchema.safeParse("01.2.3").success).toBe(false);
+  });
+});
 
 describe("SkillNameSchema", function skillNameSchema() {
   test("accepts a lowercase hyphenated skill name", function acceptsHyphenatedName() {
@@ -51,6 +68,19 @@ describe("RecipeManifestSchema", function recipeManifestSchema() {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  test("rejects a version that is not SemVer", function rejectsNonSemverVersion() {
+    const result = RecipeManifestSchema.safeParse({
+      ...validManifest,
+      version: "banana",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      return;
+    }
+    expect(result.error.issues[0]?.path).toEqual(["version"]);
   });
 
   test("rejects an entrypoint other than SKILL.md", function rejectsEntrypoint() {

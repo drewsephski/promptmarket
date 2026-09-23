@@ -11,3 +11,6 @@ minimumReleaseAgeExclude:
   - '@turbo/windows-64@2.11.3'
   - '@turbo/windows-arm64@2.11.3'
   - turbo@2.11.3
+  - '@modelcontextprotocol/client@2.1.0'
+  - '@modelcontextprotocol/core@2.1.0'
+  - '@modelcontextprotocol/server@2.1.0'

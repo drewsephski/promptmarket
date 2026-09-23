@@ -2,10 +2,11 @@ import { createHash } from "node:crypto";
 import {
   copyFile,
   mkdir,
+  open,
   readdir,
   readFile,
+  rename,
   rm,
-  writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -13,7 +14,7 @@ import {
   type Lockfile,
   type LockfileEntry,
 } from "@promptmarket/schema";
-import { getRecipe } from "./file-registry.js";
+import { FileRegistry } from "./file-registry.js";
 import type { InstallOptions, InstalledRecipe } from "./types.js";
 
 function lockfilePath(projectDir: string): string {
@@ -151,7 +152,19 @@ async function writeLockfile(
   lockfile: Lockfile,
 ): Promise<void> {
   await mkdir(projectDir, { recursive: true });
-  await writeFile(lockfilePath(projectDir), serializeLockfile(lockfile));
+  const target = lockfilePath(projectDir);
+  const temporary = path.join(projectDir, "promptmarket.lock.tmp");
+  const handle = await open(temporary, "w");
+  try {
+    await handle.writeFile(serializeLockfile(lockfile));
+    await handle.sync();
+  } catch (error) {
+    await handle.close();
+    await rm(temporary, { force: true });
+    throw error;
+  }
+  await handle.close();
+  await rename(temporary, target);
 }
 
 async function copyRecipe(source: string, destination: string): Promise<void> {
@@ -171,8 +184,9 @@ export async function installRecipe(
   options?: InstallOptions,
 ): Promise<InstalledRecipe> {
   const projectDir = path.resolve(options?.projectDir ?? process.cwd());
+  const registry = new FileRegistry(options);
   const lockfile = await readLockfile(projectDir);
-  const recipe = await getRecipe(name, options);
+  const recipe = await registry.get(name);
   const integrity = await digestRecipe(recipe.path);
   const destination = path.join(
     projectDir,
@@ -185,7 +199,7 @@ export async function installRecipe(
   const entry: LockfileEntry = {
     name: recipe.manifest.name,
     version: recipe.manifest.version,
-    source: recipe.path,
+    source: registry.source,
     integrity,
   };
   lockfile.recipes[entry.name] = entry;

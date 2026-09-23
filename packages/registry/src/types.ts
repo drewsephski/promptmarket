@@ -32,6 +32,20 @@ export type RegistryOptions = {
   recipesDir?: string;
 };
 
+export type RegistryScan = {
+  recipes: Recipe[];
+  invalid: Array<{
+    path: string;
+    errors: RecipeIssue[];
+  }>;
+};
+
+export interface Registry {
+  list(): Promise<Recipe[]>;
+  get(name: string): Promise<Recipe>;
+  search(query: string): Promise<Recipe[]>;
+}
+
 export type RecipeValidation =
   { ok: true; recipe: Recipe } | { ok: false; errors: RecipeIssue[] };
 

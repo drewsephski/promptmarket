@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { SemVerSchema } from "./semver.js";
 import { SkillNameSchema } from "./skill.js";
 
 export const RecipeManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
     name: SkillNameSchema,
-    version: z.string().min(1),
+    version: SemVerSchema,
     author: z.object({
       name: z.string().min(1),
       url: z.url().optional(),

@@ -12,9 +12,13 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { LockfileSchema } from "@promptmarket/schema";
 import {
+  FILE_REGISTRY_SOURCE,
   getRecipe,
   installRecipe,
+  InvalidRecipeError,
+  InvalidRecipeNameError,
   RecipeNotFoundError,
+  scanRecipes,
   searchRecipes,
   validateRecipe,
 } from "../src/index.js";
@@ -236,6 +240,50 @@ describe("registry", function registry() {
     ).rejects.toBeInstanceOf(RecipeNotFoundError);
   });
 
+  test("rejects a recipe name before using it as a path", async function rejectsUnsafeName() {
+    await expect(
+      getRecipe("../github-pr-review", { recipesDir }),
+    ).rejects.toBeInstanceOf(InvalidRecipeNameError);
+    await expect(getRecipe("Foo/Bar", { recipesDir })).rejects.toBeInstanceOf(
+      InvalidRecipeNameError,
+    );
+  });
+
+  test("loads one recipe when a sibling recipe is invalid", async function ignoresInvalidSibling() {
+    const sourceRoot = path.join(tempRoot, "recipes");
+    await writeRecipe({
+      directoryName: "sample-recipe",
+      manifest: validManifest,
+      skill: validSkill,
+      parent: sourceRoot,
+    });
+    await writeRecipe({
+      directoryName: "random-broken-skill",
+      manifest: "schemaVersion: [\n",
+      skill: validSkill,
+      parent: sourceRoot,
+    });
+
+    const recipe = await getRecipe("sample-recipe", { recipesDir: sourceRoot });
+    const matches = await searchRecipes("sample", { recipesDir: sourceRoot });
+    const scan = await scanRecipes({ recipesDir: sourceRoot });
+
+    expect(recipe.manifest.name).toBe("sample-recipe");
+    expect(
+      matches.map(function nameOf(item) {
+        return item.manifest.name;
+      }),
+    ).toEqual(["sample-recipe"]);
+    expect(scan.invalid).toHaveLength(1);
+    expect(scan.invalid[0]?.path).toBe(
+      path.join(sourceRoot, "random-broken-skill"),
+    );
+    expect(scan.invalid[0]?.errors[0]?.code).toBe("manifest_parse_error");
+    await expect(
+      getRecipe("random-broken-skill", { recipesDir: sourceRoot }),
+    ).rejects.toBeInstanceOf(InvalidRecipeError);
+  });
+
   test("searches recipes by description and tags", async function searchesRecipes() {
     const matches = await searchRecipes("review pull request", { recipesDir });
     const misses = await searchRecipes("kubernetes operators", { recipesDir });
@@ -307,15 +355,19 @@ describe("registry", function registry() {
     expect(installed.destination).toBe(
       path.join(projectDir, ".agents", "skills", "github-pr-review"),
     );
-    expect(installed.source).toBe(recipePath);
+    expect(installed.source).toBe(FILE_REGISTRY_SOURCE);
+    expect(installed.source).not.toContain(tempRoot);
     expect(installed.integrity).toMatch(/^sha256-[A-Za-z0-9+/]+=*$/);
     expect(installedAgain.integrity).toBe(installed.integrity);
     expect(lock.recipes["github-pr-review"]).toEqual({
       name: "github-pr-review",
       version: "0.1.0",
-      source: recipePath,
+      source: FILE_REGISTRY_SOURCE,
       integrity: installed.integrity,
     });
+    await expect(
+      stat(path.join(projectDir, "promptmarket.lock.tmp")),
+    ).rejects.toThrow();
     expect(lock.recipes["other-recipe"]?.version).toBe("1.0.0");
     expect(Object.keys(lock.recipes)).toEqual([
       "github-pr-review",

@@ -1,11 +1,9 @@
 import { Command, CommanderError } from "commander";
 import {
+  FileRegistry,
   installRecipe,
-  searchRecipes,
   validateRecipe,
-  getRecipe,
   type Recipe,
-  type RegistryOptions,
 } from "@promptmarket/registry";
 
 export type CliIo = {
@@ -30,11 +28,11 @@ function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-function registryOptions(options: { recipes?: string }): RegistryOptions {
+function createRegistry(options: { recipes?: string }): FileRegistry {
   if (!options.recipes) {
-    return {};
+    return new FileRegistry();
   }
-  return { recipesDir: options.recipes };
+  return new FileRegistry({ recipesDir: options.recipes });
 }
 
 function errorMessage(error: unknown): string {
@@ -112,7 +110,7 @@ export function createProgram(io: CliIo, state: CommandState): Command {
       options: { json?: boolean; recipes?: string },
     ) {
       try {
-        const recipes = await searchRecipes(query, registryOptions(options));
+        const recipes = await createRegistry(options).search(query);
         const summaries = recipes.map(summarizeRecipe);
         if (options.json) {
           io.stdout(json({ ok: true, query, recipes: summaries }));
@@ -143,7 +141,7 @@ export function createProgram(io: CliIo, state: CommandState): Command {
       options: { json?: boolean; recipes?: string },
     ) {
       try {
-        const recipe = await getRecipe(name, registryOptions(options));
+        const recipe = await createRegistry(options).get(name);
         if (options.json) {
           io.stdout(json({ ok: true, recipe: inspectRecipe(recipe) }));
           return;
@@ -216,7 +214,7 @@ export function createProgram(io: CliIo, state: CommandState): Command {
     ) {
       try {
         const installed = await installRecipe(name, {
-          ...registryOptions(options),
+          recipesDir: options.recipes,
           projectDir: options.project,
         });
         if (options.json) {
