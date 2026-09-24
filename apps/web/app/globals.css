@@ -1452,6 +1452,70 @@ textarea.control {
   margin: 0 0 1.5rem;
 }
 
+.lifecycle {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.lifecycle-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lifecycle-rail li {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  min-width: 4.75rem;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lifecycle-rail li[data-state="empty"] {
+  color: var(--muted);
+}
+
+.lifecycle-rail li:not(:last-child) .lifecycle-name::after {
+  content: " →";
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.lifecycle-mark {
+  color: var(--sage);
+}
+
+.lifecycle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.5rem;
+}
+
+.lifecycle-grid h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lifecycle-grid p {
+  margin: 0;
+}
+
+@media (min-width: 900px) {
+  .lifecycle-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .context-actions {
   display: flex;
   flex-wrap: wrap;

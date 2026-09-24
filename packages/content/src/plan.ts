@@ -8,11 +8,13 @@ import type { ContentCatalog } from "./load.js";
 import type { ProjectContext } from "./project.js";
 import type {
   DebugTarget,
+  EvalKind,
   EvalTarget,
   Guide,
   GuideEval,
   GuideSection,
   GuideSourceReference,
+  ObservabilityTarget,
 } from "./types.js";
 
 const FRAMING = new Set([
@@ -103,6 +105,7 @@ export type ImplementationPlan = {
   evidenceTargets: EvidenceTargets;
   evalTargets: EvalTarget[];
   debugTargets: DebugTarget[];
+  observabilityTargets: ObservabilityTarget[];
 };
 
 export type BuildPlanOptions = {
@@ -180,6 +183,31 @@ export function usesAiSdk(
   }) ?? false;
 }
 
+const DIAGNOSIS: Partial<Record<EvalKind, string[]>> = {
+  rag: [
+    "Inspect the chunks.",
+    "Inspect the retrieved rows.",
+    "Inspect the similarities.",
+    "Inspect the final model context.",
+    "Then inspect generation.",
+  ],
+  "tool-calling": [
+    "Did the model emit the expected tool call?",
+    "Were the arguments valid?",
+    "Did execute run?",
+    "What did the tool return?",
+    "Did the assistant ignore a failed result?",
+  ],
+};
+
+const OBSERVE_REASON: Record<EvalKind, string> = {
+  rag: "Trace generation, embedding calls, latency, and retrieval metadata you explicitly attach.",
+  "tool-calling":
+    "Trace model steps, tool calls, tool results, latency, and failed mutations.",
+  "structured-output":
+    "Trace generation latency, model errors, schema failures, and token usage.",
+};
+
 export function debugTargetsFor(
   guide: Guide | undefined,
   project: ProjectContext | undefined,
@@ -187,13 +215,30 @@ export function debugTargetsFor(
   if (!usesAiSdk(guide, project)) {
     return [];
   }
+  const diagnosis = guide?.eval ? DIAGNOSIS[guide.eval.kind] : undefined;
   return [
     {
       tool: "ai-sdk-devtools",
       reason:
-        "Inspect whether a tool was requested, which arguments were generated, and what the tool returned.",
+        "Inspect model calls, tool calls, tool results, and timing locally. PromptMarket supplies the diagnosis order. DevTools supplies the trace.",
       command: DEVTOOLS_COMMAND,
       warning: DEVTOOLS_WARNING,
+      ...(diagnosis ? { diagnosis } : {}),
+    },
+  ];
+}
+
+export function observabilityTargetsFor(
+  guide: Guide | undefined,
+): ObservabilityTarget[] {
+  if (!guide?.eval) {
+    return [];
+  }
+  return [
+    {
+      provider: "langfuse",
+      reason: OBSERVE_REASON[guide.eval.kind],
+      environment: "production",
     },
   ];
 }
@@ -305,5 +350,6 @@ export function buildPlan(
     },
     evalTargets: evalTargetsFor(guide),
     debugTargets: debugTargetsFor(guide, options.project),
+    observabilityTargets: observabilityTargetsFor(guide),
   };
 }

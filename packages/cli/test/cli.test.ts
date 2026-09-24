@@ -1164,4 +1164,88 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(calls[0]?.[0]).toContain("rag-knowledge-base");
     await rm(root, { recursive: true, force: true });
   });
+
+  test("verify ci writes a Promptfoo GitHub workflow once", async function verifiesCi() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "promptmarket-ci-"));
+    tempDirs.push(root);
+    const io = captureIo();
+    const code = await run(
+      ["node", "promptmarket", "verify", "ci", "--github", "--json", "--project", root],
+      io,
+    );
+    expect(code).toBe(0);
+    const body = JSON.parse(io.out()) as { file: string; node: string; secrets: string[] };
+    expect(body.file).toBe(".github/workflows/promptmarket-evals.yml");
+    expect(body.node).toBe("24");
+    expect(body.secrets).toContain("OPENAI_API_KEY");
+    const workflow = await readFile(
+      path.join(root, ".github", "workflows", "promptmarket-evals.yml"),
+      "utf8",
+    );
+    expect(workflow).toContain("promptfoo/promptfoo-action@v1");
+    expect(workflow).toContain('node-version: "24"');
+    expect(workflow).toContain("working-directory: .promptmarket/evals/");
+    expect(workflow).toContain("force-run: true");
+    const again = captureIo();
+    const againCode = await run(
+      ["node", "promptmarket", "verify", "ci", "--github", "--project", root],
+      again,
+    );
+    expect(againCode).toBe(1);
+    expect(again.err()).toContain("already exists");
+  });
+
+  test("observe names Langfuse and setup does not write files", async function observes() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "promptmarket-observe-"));
+    tempDirs.push(root);
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        dependencies: {
+          next: "16.0.0",
+          ai: "7.0.0",
+          "@openrouter/ai-sdk-provider": "2.0.0",
+          "@opentelemetry/sdk-node": "0.200.0",
+        },
+      }),
+    );
+    await writeFile(path.join(root, "instrumentation.ts"), "export {}\n");
+    const io = captureIo();
+    const code = await run(
+      ["node", "promptmarket", "observe", "add RAG over internal documentation", "--json", "--offline", "--project", root],
+      io,
+    );
+    expect(code).toBe(0);
+    const body = JSON.parse(io.out()) as {
+      observabilityTargets: Array<{ provider: string }>;
+    };
+    expect(body.observabilityTargets[0]?.provider).toBe("langfuse");
+
+    const setup = captureIo();
+    const setupCode = await run(
+      ["node", "promptmarket", "observe", "setup", "langfuse", "--json", "--offline", "--project", root],
+      setup,
+    );
+    expect(setupCode).toBe(0);
+    const setupBody = JSON.parse(setup.out()) as {
+      wrote: boolean;
+      text: string;
+      telemetry: { files: string[] };
+    };
+    expect(setupBody.wrote).toBe(false);
+    expect(setupBody.text).toContain("LANGFUSE_SECRET_KEY");
+    expect(setupBody.text).toContain("@langfuse/vercel-ai-sdk");
+    expect(setupBody.text).toContain("Existing telemetry configuration detected.");
+    expect(setupBody.text).not.toContain("sk-lf-");
+    expect(setupBody.telemetry.files).toContain("instrumentation.ts");
+    await expect(stat(path.join(root, ".env.local"))).rejects.toThrow();
+
+    const refused = captureIo();
+    const refusedCode = await run(
+      ["node", "promptmarket", "observe", "setup", "langfuse", "--write", "--offline", "--project", root],
+      refused,
+    );
+    expect(refusedCode).toBe(1);
+    expect(refused.err()).toContain("does not edit application code");
+  });
 });

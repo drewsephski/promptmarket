@@ -191,6 +191,7 @@ const outputSchema = z.object({
         reason: z.string(),
         command: z.string(),
         warning: z.string(),
+        diagnosis: z.array(z.string()).optional(),
       }),
     )
     .optional(),

@@ -112,6 +112,14 @@ const outputSchema = z.object({
       reason: z.string(),
       command: z.string(),
       warning: z.string(),
+      diagnosis: z.array(z.string()).optional(),
+    }),
+  ),
+  observabilityTargets: z.array(
+    z.object({
+      provider: z.literal("langfuse"),
+      reason: z.string(),
+      environment: z.literal("production"),
     }),
   ),
   documentationTargets: z.array(
@@ -159,7 +167,7 @@ export function registerBuildPlan(
     {
       title: "Build plan",
       description:
-        "After build_context, when the task is to implement an AI feature. Returns an architecture, implementation steps, a starting prompt, verification checks, documentation targets, eval targets, and debug targets. Does not call a model and does not edit code.",
+        "After build_context, when the task is to implement an AI feature. Returns an architecture, implementation steps, a starting prompt, verification checks, documentation targets, eval targets, debug targets, and observability targets. Does not call a model and does not edit code.",
       inputSchema,
       outputSchema,
       annotations,

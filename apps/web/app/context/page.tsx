@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import { Bezel } from "../../components/bezel";
 import { ContextForm } from "../../components/context-form";
 import { CopyButton } from "../../components/copy-button";
+import { Lifecycle } from "../../components/lifecycle";
 import {
   contextSearchParams,
   projectFromFilters,
@@ -88,6 +89,12 @@ export default async function ContextPage({ searchParams }: ContextPageProps) {
       </div>
 
       <ContextForm query={query} filters={filters} />
+
+      {plan && plan.pattern.topic !== "No matching concept" ? (
+        <Bezel coreClassName="panel">
+          <Lifecycle plan={plan} />
+        </Bezel>
+      ) : null}
 
       {context && topic ? (
         <Bezel coreClassName="panel">

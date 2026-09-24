@@ -5,6 +5,7 @@ import { FileRegistry, type Registry } from "@promptmarket/registry";
 import { registerBuildContext } from "./tools/build-context.js";
 import { registerBuildPlan } from "./tools/build-plan.js";
 import { registerGetGuide } from "./tools/get-guide.js";
+import { registerGetWorkflow } from "./tools/get-workflow.js";
 import { registerGetLearnTopic } from "./tools/get-learn-topic.js";
 import { registerGetPrompt } from "./tools/get-prompt.js";
 import { registerGetRecipe } from "./tools/get-recipe.js";
@@ -26,6 +27,7 @@ export function createPromptMarketServer(
   });
   registerBuildContext(server, registry, catalog);
   registerBuildPlan(server, catalog);
+  registerGetWorkflow(server, catalog);
   registerSearchPrompts(server, catalog);
   registerGetPrompt(server, catalog);
   registerSearchLearn(server, catalog);

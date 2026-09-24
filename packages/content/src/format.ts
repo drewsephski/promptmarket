@@ -172,6 +172,11 @@ export function formatContextText(context: BuiltContext): string {
     for (const target of context.debugTargets) {
       lines.push(target.tool);
       lines.push(target.reason);
+      if (target.diagnosis) {
+        target.diagnosis.forEach(function step(item, index) {
+          lines.push(`${index + 1}. ${item}`);
+        });
+      }
       lines.push(`Next: ${target.command}`);
       lines.push(target.warning);
     }
@@ -241,9 +246,23 @@ export function formatPlan(plan: ImplementationPlan): string {
     for (const target of plan.debugTargets) {
       lines.push(target.tool);
       lines.push(target.reason);
+      if (target.diagnosis) {
+        target.diagnosis.forEach(function step(item, index) {
+          lines.push(`${index + 1}. ${item}`);
+        });
+      }
       lines.push(target.command);
       lines.push(target.warning);
     }
+    lines.push("");
+  }
+  if (plan.observabilityTargets.length > 0) {
+    lines.push("Observe");
+    for (const target of plan.observabilityTargets) {
+      lines.push(`${target.provider} · ${target.environment}`);
+      lines.push(target.reason);
+    }
+    lines.push('Next: promptmarket observe "<goal>" --project .');
     lines.push("");
   }
   if (plan.guide) {
@@ -354,7 +373,14 @@ export function formatAgentContext(context: BuiltContext): string {
   if (context.debugTargets && context.debugTargets.length > 0) {
     lines.push("## Debug tool");
     for (const target of context.debugTargets) {
-      lines.push(target.tool, "", target.reason, "", `Next: \`${target.command}\``, "", target.warning, "");
+      lines.push(target.tool, "", target.reason, "");
+      if (target.diagnosis) {
+        target.diagnosis.forEach(function step(item, index) {
+          lines.push(`${index + 1}. ${item}`);
+        });
+        lines.push("");
+      }
+      lines.push(`Next: \`${target.command}\``, "", target.warning, "");
     }
   }
   if (references.length > 0) {

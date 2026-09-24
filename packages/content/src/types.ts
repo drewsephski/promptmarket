@@ -204,6 +204,17 @@ export type DebugTarget = {
   reason: string;
   command: string;
   warning: string;
+  diagnosis?: string[];
+};
+
+export const OBSERVABILITY_PROVIDERS = ["langfuse"] as const;
+
+export type ObservabilityProvider = (typeof OBSERVABILITY_PROVIDERS)[number];
+
+export type ObservabilityTarget = {
+  provider: ObservabilityProvider;
+  reason: string;
+  environment: "production";
 };
 
 export type GuideEvidence = {

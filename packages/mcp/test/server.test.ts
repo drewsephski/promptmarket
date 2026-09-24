@@ -173,6 +173,11 @@ describe("promptmarket mcp", function promptmarketMcp() {
         destructiveHint: false,
       },
       {
+        name: "get_workflow",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
         name: "search_prompts",
         readOnlyHint: true,
         destructiveHint: false,
@@ -228,6 +233,36 @@ describe("promptmarket mcp", function promptmarketMcp() {
         destructiveHint: false,
       },
     ]);
+  });
+
+  test("get_workflow returns the plan targets without calling other systems", async function getsWorkflow() {
+    const client = await connect(registryWith([recipe]));
+    const result = (await client.callTool({
+      name: "get_workflow",
+      arguments: {
+        query: "Add RAG over internal documentation",
+        project: {
+          framework: "Next.js",
+          packages: ["next", "ai"],
+          versions: { ai: "7.0.0" },
+          ai: { sdk: "Vercel AI SDK" },
+        },
+      },
+    })) as ToolResult;
+
+    expect(result.isError).toBeFalsy();
+    const body = result.structuredContent as {
+      documentationTargets: Array<{ package: string }>;
+      evalTargets: Array<{ system: string }>;
+      observabilityTargets: Array<{ provider: string }>;
+      debugTargets: Array<{ tool: string }>;
+    };
+    expect(body.documentationTargets.map(function packageOf(target) {
+      return target.package;
+    })).toContain("ai");
+    expect(body.evalTargets[0]?.system).toBe("promptfoo");
+    expect(body.debugTargets[0]?.tool).toBe("ai-sdk-devtools");
+    expect(body.observabilityTargets[0]?.provider).toBe("langfuse");
   });
 
   test("search_recipes returns matching summaries", async function searchesRecipes() {

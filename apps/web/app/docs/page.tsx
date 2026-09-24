@@ -78,7 +78,8 @@ pnpm dlx @promptmarket/cli setup cursor --check`}
         <p className="note">Cursor remote MCP config:</p>
         <CommandBlock command={cursorConfig} label="Copy Cursor MCP config" />
         <p className="note">
-          Primary tools: <code>build_context</code>, <code>build_plan</code>,{" "}
+          Primary tools: <code>get_workflow</code>, <code>build_context</code>,{" "}
+          <code>build_plan</code>,{" "}
           <code>search_prompts</code>
           , <code>get_prompt</code>, <code>search_learn</code>,{" "}
           <code>get_learn_topic</code>, <code>search_guides</code>,{" "}

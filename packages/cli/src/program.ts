@@ -26,7 +26,7 @@ import {
   renderSetupReport,
   type SetupMode,
 } from "./cursor-setup.js";
-import { access, readdir } from "node:fs/promises";
+import { access, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { groundPlan } from "./documentation.js";
 import {
@@ -46,9 +46,16 @@ import {
 import { registerAuthorCommands, type CliDeps } from "./author-commands.js";
 import { createRegistry } from "./registry-option.js";
 import {
+  detectTelemetry,
+  formatLangfuseSetup,
+  formatObservation,
+} from "./observe.js";
+import {
   EVAL_ROOT,
+  EVAL_WORKFLOW,
   PROMPTFOO_EVAL,
   PROMPTFOO_VIEW,
+  githubEvalWorkflow,
   runInherited,
   writeEvalSuite,
 } from "./verify.js";
@@ -650,6 +657,63 @@ export function createProgram(
     });
 
   verify
+    .command("ci")
+    .description("Scaffold a Promptfoo GitHub Action that gates pull requests")
+    .option("--github", "Write .github/workflows/promptmarket-evals.yml")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--project <dir>", "Project directory", ".")
+    .action(async function verifyCiAction(options: {
+      github?: boolean;
+      json?: boolean;
+      project: string;
+    }) {
+      try {
+        if (!options.github) {
+          throw new Error("Pass --github to scaffold the Promptfoo pull request workflow.");
+        }
+        const destination = path.join(options.project, EVAL_WORKFLOW);
+        try {
+          await access(destination);
+          throw new Error(
+            `${EVAL_WORKFLOW} already exists. Promptfoo owns that workflow.`,
+          );
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("already exists")) {
+            throw error;
+          }
+        }
+        await mkdir(path.dirname(destination), { recursive: true });
+        await writeFile(destination, githubEvalWorkflow(), { flag: "wx" });
+        const payload = {
+          ok: true,
+          file: EVAL_WORKFLOW,
+          action: "promptfoo/promptfoo-action@v1",
+          node: "24",
+          secrets: ["GITHUB_TOKEN", "OPENAI_API_KEY"],
+          workingDirectory: `${EVAL_ROOT}/<suite>`,
+        };
+        if (options.json) {
+          io.stdout(json(payload));
+          return;
+        }
+        io.stdout(
+          [
+            "CI Promptfoo",
+            EVAL_WORKFLOW,
+            "Node 24",
+            "working directory .promptmarket/evals/<suite>",
+            "secrets: GITHUB_TOKEN, OPENAI_API_KEY",
+            "",
+            "Promptfoo runs the suites, posts the pull request comment, and fails the job when an assertion fails.",
+            "",
+          ].join("\n"),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  verify
     .command("view")
     .description("Open the Promptfoo results viewer")
     .argument("[dir]", "Project directory", ".")
@@ -682,6 +746,107 @@ export function createProgram(
       writeFailure(io, state, false, error);
     }
   }
+
+  program
+    .command("observe")
+    .description("Explain production tracing for a plan. Does not edit application code.")
+    .argument("<query>", "Feature to observe, or setup")
+    .argument("[provider]", "Provider when the first argument is setup")
+    .argument("[feature]", "Feature for setup. Defaults to add RAG")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--project <dir>", "Project directory")
+    .option("--write", "Refused. Setup does not edit application code.")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function observeAction(
+      query: string,
+      provider: string | undefined,
+      feature: string | undefined,
+      options: {
+        json?: boolean;
+        project?: string;
+        write?: boolean;
+        offline?: boolean;
+        refresh?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        if (query === "setup") {
+          const named = provider ?? "langfuse";
+          if (options.write) {
+            throw new Error(
+              "observe setup does not edit application code. Omit --write.",
+            );
+          }
+          if (named !== "langfuse") {
+            throw new Error(
+              "Langfuse is the only observability provider PromptMarket names.",
+            );
+          }
+          const projectDir = options.project ?? ".";
+          const { catalog } = await openContent(options, deps);
+          const project = detectProject(projectDir);
+          const plan = buildPlan(catalog, {
+            query: feature ?? "add RAG",
+            project,
+          });
+          const telemetry = detectTelemetry(projectDir, project);
+          const text = formatLangfuseSetup(plan, project, telemetry);
+          if (options.json) {
+            io.stdout(
+              json({
+                ok: true,
+                provider: named,
+                wrote: false,
+                packages: [
+                  "@langfuse/client",
+                  "@langfuse/vercel-ai-sdk",
+                  "@langfuse/tracing",
+                  "@langfuse/otel",
+                  "@opentelemetry/sdk-node",
+                ],
+                environment: [
+                  "LANGFUSE_SECRET_KEY",
+                  "LANGFUSE_PUBLIC_KEY",
+                  "LANGFUSE_BASE_URL",
+                ],
+                telemetry,
+                observabilityTargets: plan.observabilityTargets,
+                text,
+              }),
+            );
+            return;
+          }
+          io.stdout(text);
+          return;
+        }
+        if (provider) {
+          throw new Error('Usage: promptmarket observe "<feature>" --project .');
+        }
+        const { catalog } = await openContent(options, deps);
+        const project = options.project
+          ? detectProject(options.project)
+          : undefined;
+        const plan = buildPlan(catalog, { query, project });
+        if (options.json) {
+          io.stdout(
+            json({
+              ok: true,
+              goal: plan.goal,
+              observabilityTargets: plan.observabilityTargets,
+            }),
+          );
+          return;
+        }
+        io.stdout(formatObservation(plan));
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
 
   program
     .command("doctor")

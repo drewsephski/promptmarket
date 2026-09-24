@@ -427,6 +427,13 @@ Hello {{input}}
       return item.name;
     })).toEqual(["known-answer", "unsupported-answer"]);
     expect(plan.debugTargets[0]?.tool).toBe("ai-sdk-devtools");
+    expect(plan.debugTargets[0]?.diagnosis?.[0]).toBe("Inspect the chunks.");
+    expect(plan.observabilityTargets[0]).toEqual({
+      provider: "langfuse",
+      reason:
+        "Trace generation, embedding calls, latency, and retrieval metadata you explicitly attach.",
+      environment: "production",
+    });
     expect(plan.evidenceTargets.docs).toBe(plan.documentationTargets);
     expect(plan.evidenceTargets.references).toEqual([
       {

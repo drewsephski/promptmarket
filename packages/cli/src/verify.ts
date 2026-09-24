@@ -6,6 +6,8 @@ import { stringify } from "yaml";
 
 export const EVAL_ROOT = ".promptmarket/evals";
 
+export const EVAL_WORKFLOW = ".github/workflows/promptmarket-evals.yml";
+
 export type CommandRunner = (
   file: string,
   args: string[],
@@ -133,6 +135,85 @@ async function callApi(
 }
 
 export default { callApi };
+`;
+}
+
+export function githubEvalWorkflow(): string {
+  return `name: PromptMarket evals
+
+on:
+  pull_request:
+    paths:
+      - ".promptmarket/evals/**"
+      - ".github/workflows/promptmarket-evals.yml"
+      - "app/**"
+      - "src/**"
+      - "packages/**"
+  workflow_dispatch:
+
+# Promptfoo owns evaluation, assertions, scoring, and the pull request comment.
+# A failed assertion fails this job. Widen paths to the code provider.ts calls.
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      suites: \${{ steps.list.outputs.suites }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          if [ ! -d .promptmarket/evals ]; then
+            echo 'suites=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mapfile -t dirs < <(find .promptmarket/evals -mindepth 1 -maxdepth 1 -type d -printf '%P\\n' | sort)
+          if [ \${#dirs[@]} -eq 0 ]; then
+            echo 'suites=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          json=$(printf '%s\\n' "\${dirs[@]}" | jq -R . | jq -s -c .)
+          echo "suites=$json" >> "$GITHUB_OUTPUT"
+
+  evaluate:
+    needs: discover
+    if: needs.discover.outputs.suites != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: \${{ fromJson(needs.discover.outputs.suites) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+      - name: Cache Promptfoo
+        uses: actions/cache@v4
+        with:
+          path: .promptfoo-cache
+          key: \${{ runner.os }}-promptfoo-\${{ matrix.suite }}-\${{ hashFiles(format('.promptmarket/evals/{0}/**', matrix.suite)) }}
+          restore-keys: |
+            \${{ runner.os }}-promptfoo-\${{ matrix.suite }}-
+      - name: Run Promptfoo
+        uses: promptfoo/promptfoo-action@v1
+        with:
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          working-directory: .promptmarket/evals/\${{ matrix.suite }}
+          config: promptfooconfig.yaml
+          cache-path: \${{ github.workspace }}/.promptfoo-cache
+          use-config-prompts: true
+          force-run: true
+          no-table: true
+          no-progress-bar: true
+        env:
+          # Promptfoo graders such as llm-rubric use this unless the suite says otherwise.
+          OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+          # Add the key provider.ts uses once it calls the app, for example OPENROUTER_API_KEY.
 `;
 }
 
