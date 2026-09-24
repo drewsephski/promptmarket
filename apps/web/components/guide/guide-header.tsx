@@ -40,7 +40,9 @@ export function GuideHeader({ guide }: GuideHeaderProps) {
         <h1>{guide.title}</h1>
         <p className="lede">{guide.description}</p>
       </div>
-      <p className="workflow-kicker guide-pattern">{patternLabel(guide.concepts)}</p>
+      <p className="workflow-kicker guide-pattern">
+        {patternLabel(guide.concepts)}
+      </p>
       <div className="entry-meta guide-meta">
         <span className="tag">{difficultyLabel(guide.difficulty)}</span>
         {guide.estimatedTime ? (

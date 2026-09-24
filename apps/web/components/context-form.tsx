@@ -40,7 +40,11 @@ export function ContextForm({ query, filters }: ContextFormProps) {
   }
 
   return (
-    <form className="filters context-filters" role="search" onSubmit={handleSubmit}>
+    <form
+      className="filters context-filters"
+      role="search"
+      onSubmit={handleSubmit}
+    >
       <label className="filter-field">
         <span>What are you building?</span>
         <input

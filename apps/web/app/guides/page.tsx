@@ -29,7 +29,9 @@ function patternOf(concepts: string[]): string {
   const match = concepts.find(function known(concept) {
     return concept in PATTERN_LABELS;
   });
-  return PATTERN_LABELS[match ?? ""] ?? concepts[0]?.replaceAll("-", " ") ?? "Guide";
+  return (
+    PATTERN_LABELS[match ?? ""] ?? concepts[0]?.replaceAll("-", " ") ?? "Guide"
+  );
 }
 
 function timeLabel(value: string | undefined): string | undefined {
@@ -66,7 +68,10 @@ export default function GuidesPage() {
               <h2>{guide.title}</h2>
               <p>{guide.description}</p>
               <span>
-                {[difficultyLabel(guide.difficulty), timeLabel(guide.estimatedTime)]
+                {[
+                  difficultyLabel(guide.difficulty),
+                  timeLabel(guide.estimatedTime),
+                ]
                   .filter(Boolean)
                   .join(" · ")}
               </span>

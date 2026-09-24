@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const links: Array<{ href: string; label: string; external?: boolean }> = [
@@ -14,7 +15,15 @@ const links: Array<{ href: string; label: string; external?: boolean }> = [
   },
 ];
 
+function navCurrent(href: string, pathname: string): boolean {
+  if (href === "/") {
+    return pathname === "/";
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function SiteHeader() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   useEffect(
@@ -59,10 +68,12 @@ export function SiteHeader() {
         </a>
         <nav className="nav-inline" aria-label="Primary">
           {links.map(function renderLink(link) {
+            const current = !link.external && navCurrent(link.href, pathname);
             return (
               <a
                 key={link.href}
                 href={link.href}
+                {...(current ? { "aria-current": "page" as const } : {})}
                 {...(link.external
                   ? { target: "_blank", rel: "noreferrer" }
                   : {})}
@@ -88,18 +99,32 @@ export function SiteHeader() {
         id="site-menu"
         className={open ? "overlay is-open" : "overlay"}
         aria-hidden={open ? undefined : true}
+        role={open ? "dialog" : undefined}
+        aria-modal={open ? true : undefined}
+        aria-label={open ? "Site menu" : undefined}
+        onClick={function handleOverlayClick(event) {
+          if (event.target === event.currentTarget) {
+            handleClose();
+          }
+        }}
       >
         <p className="eyebrow overlay-kicker">Index</p>
         <nav className="overlay-links" aria-label="Mobile">
-          <a href="/" onClick={handleClose}>
+          <a
+            href="/"
+            onClick={handleClose}
+            {...(pathname === "/" ? { "aria-current": "page" as const } : {})}
+          >
             Home
           </a>
           {links.map(function renderOverlayLink(link) {
+            const current = !link.external && navCurrent(link.href, pathname);
             return (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={handleClose}
+                {...(current ? { "aria-current": "page" as const } : {})}
                 {...(link.external
                   ? { target: "_blank", rel: "noreferrer" }
                   : {})}

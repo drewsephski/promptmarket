@@ -10,7 +10,7 @@ import { workflowView } from "../lib/workflow";
 
 const EXAMPLE_QUERY = "Add a RAG knowledge base";
 const CURSOR_SETUP =
-  "pnpm dlx @promptmarket/cli setup cursor --write";
+  "pnpm dlx @promptmarket/cli setup cursor --write --with-context7";
 
 const entries = [
   {
@@ -50,9 +50,9 @@ export default function Home() {
           <p className="eyebrow">PromptMarket</p>
           <h1>Build AI features with the right context.</h1>
           <p className="lede">
-            Describe what you are adding. PromptMarket picks the pattern,
-            gives you an implementation plan, and tells your coding agent what
-            to verify.
+            Describe what you are adding. PromptMarket picks the pattern, gives
+            you an implementation plan, and tells your coding agent what to
+            verify.
           </p>
           <form className="resolver" action="/context" method="get">
             <label>

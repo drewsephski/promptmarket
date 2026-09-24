@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { CopyButton } from "./copy-button";
-import { previewSteps, type WorkflowStage, type WorkflowView } from "../lib/workflow";
+import { useTabKeyboard } from "../lib/use-tab-keyboard";
+import {
+  previewSteps,
+  stageEmptyCopy,
+  type WorkflowStage,
+  type WorkflowView,
+} from "../lib/workflow";
 
 interface WorkflowResultProps {
   view: WorkflowView;
@@ -22,11 +28,23 @@ export function WorkflowResult({
     return stage.id === open;
   });
 
+  const stageIds = view.stages.map(function idOf(stage) {
+    return stage.id;
+  });
+
   function handleStage(id: WorkflowStage["id"]) {
     setOpen(function current(value) {
       return value === id ? null : id;
     });
   }
+
+  const handleStageKeys = useTabKeyboard(
+    stageIds,
+    open,
+    function selectStage(id) {
+      setOpen(id);
+    },
+  );
 
   return (
     <article className="workflow">
@@ -78,7 +96,12 @@ export function WorkflowResult({
           Verify: {view.verification.slice(0, 2).join(" ")}
         </p>
       ) : null}
-      <div className="workflow-stages" role="tablist" aria-label="Workflow stages">
+      <div
+        className="workflow-stages"
+        role="tablist"
+        aria-label="Workflow stages"
+        onKeyDown={variant === "full" ? handleStageKeys : undefined}
+      >
         {view.stages.map(function renderStage(stage) {
           const selected = open === stage.id;
           if (variant === "example") {
@@ -98,6 +121,16 @@ export function WorkflowResult({
               id={`stage-${stage.id}`}
               aria-selected={selected}
               aria-controls="workflow-stage-panel"
+              tabIndex={
+                open === null
+                  ? stage.id === stageIds[0]
+                    ? 0
+                    : -1
+                  : selected
+                    ? 0
+                    : -1
+              }
+              aria-label={`${stage.label}, ${stage.stat}`}
               onClick={function onStage() {
                 handleStage(stage.id);
               }}
@@ -116,7 +149,7 @@ export function WorkflowResult({
           aria-labelledby={`stage-${active.id}`}
         >
           {active.items.length === 0 ? (
-            <p>Nothing to show for this stage.</p>
+            <p>{stageEmptyCopy(active.id)}</p>
           ) : (
             <ul>
               {active.items.map(function renderItem(item) {

@@ -32,8 +32,8 @@ export default async function RecipesPage({ searchParams }: RecipesPageProps) {
         <p className="eyebrow">Skills</p>
         <h1>Procedures for coding agents.</h1>
         <p className="lede">
-          Installable procedures for coding agents. Prompts you copy live in the{" "}
-          <a href="/prompts">gallery</a>.
+          Install procedures into your agent. Reusable prompt patterns live in
+          the <a href="/prompts">gallery</a>.
         </p>
       </div>
       <form className="search" action="/recipes" method="get" role="search">

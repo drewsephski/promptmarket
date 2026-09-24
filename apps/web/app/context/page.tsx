@@ -84,7 +84,11 @@ export default async function ContextPage({ searchParams }: ContextPageProps) {
 
       {matched && plan && context && topic ? (
         <WorkflowResult
-          view={workflowView(plan, topic.definition, formatAgentContext(context))}
+          view={workflowView(
+            plan,
+            topic.definition,
+            formatAgentContext(context),
+          )}
         />
       ) : null}
 

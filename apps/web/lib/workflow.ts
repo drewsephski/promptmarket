@@ -32,6 +32,23 @@ export function previewSteps(steps: WorkflowItem[]): WorkflowItem[] {
   return steps.slice(0, PREVIEW_STEPS);
 }
 
+export function stageEmptyCopy(id: WorkflowStage["id"]): string {
+  switch (id) {
+    case "plan":
+      return "No implementation steps for this pattern.";
+    case "docs":
+      return "No documentation targets for this stack.";
+    case "debug":
+      return "No DevTools debug targets for this pattern.";
+    case "verify":
+      return "No eval cases for this pattern yet.";
+    case "observe":
+      return "No observability setup for this pattern.";
+    default:
+      return "No details for this stage.";
+  }
+}
+
 export function workflowView(
   plan: ImplementationPlan,
   summary: string,

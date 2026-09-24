@@ -52,11 +52,11 @@ export default function CliDocsPage() {
           Promptfoo suites. <code>feature status</code> checks a contract.
         </p>
         <p>
-          <code>detect</code> fingerprints the current project. <code>doctor</code>{" "}
-          compares those versions with the packages each guide was reproduced
-          with. <code>context</code> assembles the lesson, prompt, and guide.{" "}
-          <code>--format agent</code> prints that context as markdown.{" "}
-          <code>plan</code> prints the implementation plan.
+          <code>detect</code> fingerprints the current project.{" "}
+          <code>doctor</code> compares those versions with the packages each
+          guide was reproduced with. <code>context</code> assembles the lesson,
+          prompt, and guide. <code>--format agent</code> prints that context as
+          markdown. <code>plan</code> prints the implementation plan.
         </p>
         <p>
           <code>search</code> prints guides, lessons, prompts, and skills.{" "}

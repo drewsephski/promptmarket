@@ -1,14 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArrowMark } from "./marks";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "./ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "./ui/select";
 
 const ANY = "__any";
 
@@ -34,6 +29,13 @@ export function FilterSelect({
 }: FilterSelectProps) {
   const [selected, setSelected] = useState(value || ANY);
   const fieldId = `${name}-filter`;
+
+  useEffect(
+    function syncFromUrl() {
+      setSelected(value || ANY);
+    },
+    [value],
+  );
   const current = options.find(function match(option) {
     return option.value === selected;
   });
@@ -102,6 +104,7 @@ export function PromptFilters({
           name="q"
           defaultValue={query}
           placeholder="structured output, RAG, triage"
+          aria-label="Search prompts"
         />
       </label>
       <FilterSelect
