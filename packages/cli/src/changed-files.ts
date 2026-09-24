@@ -1,4 +1,14 @@
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import {
+  dependencyChanges,
+  isDependencyManifest,
+  mergeVersions,
+  versionsInFile,
+  type DependencyChange,
+  type VersionIndex,
+} from "@promptmarket/content";
 
 export type GitRunner = (args: string[], cwd: string) => Promise<string>;
 
@@ -59,4 +69,43 @@ export async function changedFilesSince(
     files.push(file);
   }
   return files;
+}
+
+async function fileAtRef(git: GitRunner, root: string, base: string, file: string): Promise<string> {
+  try {
+    return await git(["show", `${base}:${file}`], root);
+  } catch {
+    return "";
+  }
+}
+
+async function fileNow(root: string, file: string): Promise<string> {
+  try {
+    return await readFile(path.join(root, file), "utf8");
+  } catch {
+    return "";
+  }
+}
+
+export async function dependencyChangesSince(
+  root: string,
+  base: string,
+  changedFiles: string[],
+  git: GitRunner = runGit,
+): Promise<DependencyChange[]> {
+  const manifests = changedFiles.filter(isDependencyManifest);
+  if (manifests.length === 0) {
+    return [];
+  }
+  const before: VersionIndex = {};
+  const after: VersionIndex = {};
+  for (const file of manifests) {
+    const [previous, current] = await Promise.all([
+      fileAtRef(git, root, base, file),
+      fileNow(root, file),
+    ]);
+    mergeVersions(before, versionsInFile(file, previous));
+    mergeVersions(after, versionsInFile(file, current));
+  }
+  return dependencyChanges(before, after);
 }

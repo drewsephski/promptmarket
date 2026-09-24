@@ -1,5 +1,10 @@
+import picomatch from "picomatch";
 import { stringify, parse } from "yaml";
 import { packageLabel, versionsMatch } from "./compatibility.js";
+import {
+  formatDependencyChange,
+  type DependencyChange,
+} from "./dependency-versions.js";
 import type { ContentCatalog } from "./load.js";
 import type { ImplementationPlan } from "./plan.js";
 import type { ProjectContext } from "./project.js";
@@ -691,29 +696,10 @@ export function attachPaths(contract: FeatureContract, paths: string[]): Feature
   };
 }
 
-function globSource(pattern: string): string {
-  let source = "";
-  for (let index = 0; index < pattern.length; index += 1) {
-    const current = pattern[index] ?? "";
-    const next = pattern[index + 1];
-    if (current === "*" && next === "*") {
-      const slash = pattern[index + 2] === "/";
-      source += slash ? "(?:[^/]+/)*" : ".*";
-      index += slash ? 2 : 1;
-      continue;
-    }
-    if (current === "*") {
-      source += "[^/]*";
-      continue;
-    }
-    source += current.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  }
-  return source;
-}
-
 export function pathMatches(pattern: string, file: string): boolean {
   const normalized = file.replace(/\\/g, "/").replace(/^\.\//, "");
-  return new RegExp(`^${globSource(pattern.replace(/\\/g, "/").replace(/^\.\//, ""))}$`).test(normalized);
+  const source = pattern.replace(/\\/g, "/").replace(/^\.\//, "");
+  return picomatch(source, { dot: true })(normalized);
 }
 
 export function matchingPaths(paths: string[], files: string[]): string[] {
@@ -760,27 +746,77 @@ function recommendedChecks(contract: FeatureContract): string[] {
   return checks;
 }
 
+export type ChangeImpactOptions = {
+  dependencyChanges?: DependencyChange[];
+};
+
+function contractFile(contract: FeatureContract): string {
+  return `.promptmarket/features/${contract.id}.yaml`;
+}
+
+function suiteDirectory(suite: string): string {
+  const normalized = suite.replace(/\\/g, "/").replace(/\/$/, "");
+  const slash = normalized.lastIndexOf("/");
+  return slash === -1 ? normalized : normalized.slice(0, slash);
+}
+
+function implicitMatches(contract: FeatureContract, files: string[]): string[] {
+  const contractPath = contractFile(contract);
+  const suite = contract.eval?.suite.replace(/\\/g, "/");
+  const directory = suite ? suiteDirectory(suite) : undefined;
+  return files.filter(function hit(file) {
+    if (file === contractPath) {
+      return true;
+    }
+    if (!suite || !directory) {
+      return false;
+    }
+    return file === suite || file.startsWith(`${directory}/`);
+  });
+}
+
+function relevantDependencyChanges(
+  contract: FeatureContract,
+  changes: DependencyChange[],
+): DependencyChange[] {
+  const tested = contract.project?.testedWith ?? {};
+  return changes.filter(function used(change) {
+    return Object.prototype.hasOwnProperty.call(tested, change.packageName);
+  });
+}
+
 export function assessChangeImpact(
   contracts: FeatureContract[],
   changedFiles: string[],
   guides: Record<string, FeatureGuideContext> = {},
+  options: ChangeImpactOptions = {},
 ): ChangeImpact {
   const changed = normalizePaths(changedFiles);
+  const dependencies = options.dependencyChanges ?? [];
   const features = contracts.map(function impact(contract) {
     const paths = contract.implementation?.paths ?? [];
     const docs = guides[contract.id]?.docs ?? [];
-    if (paths.length === 0) {
-      const unmapped: FeatureImpact = {
-        id: contract.id,
-        status: "unmapped",
-        changed: [],
-        checks: [],
-        docs,
-      };
-      return unmapped;
-    }
     const owned = matchingPaths(paths, changed);
-    if (owned.length === 0) {
+    const implicit = implicitMatches(contract, changed).filter(function extra(file) {
+      return !owned.includes(file);
+    });
+    const dependencyHits = relevantDependencyChanges(contract, dependencies);
+    const reasons = [
+      ...owned,
+      ...implicit,
+      ...dependencyHits.map(formatDependencyChange),
+    ];
+    if (reasons.length === 0) {
+      if (paths.length === 0) {
+        const unmapped: FeatureImpact = {
+          id: contract.id,
+          status: "unmapped",
+          changed: [],
+          checks: [],
+          docs,
+        };
+        return unmapped;
+      }
       const clear: FeatureImpact = {
         id: contract.id,
         status: "clear",
@@ -794,7 +830,7 @@ export function assessChangeImpact(
     const hit: FeatureImpact = {
       id: contract.id,
       status: "impacted",
-      changed: owned,
+      changed: reasons,
       checks: recommendedChecks(contract),
       docs,
       ...(suite ? { suite } : {}),
@@ -822,18 +858,45 @@ function riskLabels(files: string[]): string[] {
   return labels;
 }
 
+function implicitRisks(files: string[]): string[] {
+  const labels: string[] = [];
+  if (files.some(function contract(file) {
+    return file.startsWith(".promptmarket/features/") && file.endsWith(".yaml");
+  })) {
+    labels.push("feature contract changed");
+  }
+  if (files.some(function suite(file) {
+    return file.startsWith(".promptmarket/evals/");
+  })) {
+    labels.push("eval suite changed");
+  }
+  return labels;
+}
+
+function dependencyRisks(changes: DependencyChange[]): string[] {
+  return changes.map(function risk(change) {
+    const from = change.from.length > 0 ? change.from : "absent";
+    const to = change.to.length > 0 ? change.to : "absent";
+    return `dependency version changed: ${packageLabel(change.packageName)} ${from} → ${to}`;
+  });
+}
+
 export function reviewFeatureChange(
   contract: FeatureContract,
   changedFiles: string[],
   guide?: FeatureGuideContext,
+  dependencyChanges: DependencyChange[] = [],
 ): FeatureReview {
-  const owned = matchingPaths(contract.implementation?.paths ?? [], normalizePaths(changedFiles));
+  const files = normalizePaths(changedFiles);
+  const owned = matchingPaths(contract.implementation?.paths ?? [], files);
+  const implicit = implicitMatches(contract, files);
+  const dependencies = relevantDependencyChanges(contract, dependencyChanges);
   const promptfoo = contract.eval
     ? `Promptfoo ${contract.pattern === "rag" ? "RAG" : contract.pattern ?? "feature"} suite`
     : undefined;
   return {
     id: contract.id,
-    risks: riskLabels(owned),
+    risks: [...dependencyRisks(dependencies), ...riskLabels(owned), ...implicitRisks(implicit)],
     recheck: [...(guide?.verification ?? []), ...(promptfoo ? [promptfoo] : [])],
     docs: guide?.docs ?? [],
   };

@@ -35,6 +35,15 @@ export {
   formatPlan,
 } from "./format.js";
 export {
+  dependencyChanges,
+  formatDependencyChange,
+  isDependencyManifest,
+  mergeVersions,
+  versionsInFile,
+  type DependencyChange,
+  type VersionIndex,
+} from "./dependency-versions.js";
+export {
   assessChangeImpact,
   assessFeature,
   attachPaths,
@@ -54,6 +63,7 @@ export {
   reviewFeatureChange,
   serializeFeatureContract,
   type ChangeImpact,
+  type ChangeImpactOptions,
   type FeatureAssessment,
   type FeatureCheck,
   type FeatureContract,

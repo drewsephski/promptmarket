@@ -66,7 +66,7 @@ import {
   formatLangfuseSetup,
   formatObservation,
 } from "./observe.js";
-import { changedFilesSince } from "./changed-files.js";
+import { changedFilesSince, dependencyChangesSince } from "./changed-files.js";
 import {
   featureEvidence,
   FEATURE_ROOT,
@@ -728,7 +728,7 @@ export function createProgram(
 
   verify
     .command("changed")
-    .description("Run Promptfoo only for features whose implementation paths changed")
+    .description("Run Promptfoo only for features affected since a base ref")
     .option("--base <ref>", "Three-dot base, such as origin/main")
     .option("--project <dir>", "Project directory", ".")
     .option("--json", "Print deterministic JSON to stdout")
@@ -747,7 +747,13 @@ export function createProgram(
           options.base,
           deps.git,
         );
-        const impact = assessChangeImpact(contracts, changed);
+        const dependencies = await dependencyChangesSince(
+          options.project,
+          options.base,
+          changed,
+          deps.git,
+        );
+        const impact = assessChangeImpact(contracts, changed, {}, { dependencyChanges: dependencies });
         const suites = impact.features.filter(function hit(feature) {
           return feature.status === "impacted" && feature.suite;
         });
@@ -1545,8 +1551,14 @@ export function createProgram(
         }
         const contracts = await loadContracts(options.project);
         const changed = await changedFilesSince(options.project, options.base, deps.git);
+        const dependencies = await dependencyChangesSince(
+          options.project,
+          options.base,
+          changed,
+          deps.git,
+        );
         const { catalog } = await openContent(options, deps);
-        const impact = assessChangeImpact(contracts, changed);
+        const impact = assessChangeImpact(contracts, changed, {}, { dependencyChanges: dependencies });
         const reviews = impact.features.flatMap(function review(feature) {
           if (feature.status !== "impacted") {
             return [];
@@ -1557,7 +1569,12 @@ export function createProgram(
           if (!contract) {
             return [];
           }
-          return [reviewFeatureChange(contract, changed, guideContextFor(catalog, contract))];
+          return [reviewFeatureChange(
+            contract,
+            changed,
+            guideContextFor(catalog, contract),
+            dependencies,
+          )];
         });
         if (options.json) {
           io.stdout(json({ ok: true, reviews }));
@@ -1571,7 +1588,7 @@ export function createProgram(
 
   program
     .command("impacted")
-    .description("List AI features whose implementation paths changed since a base ref")
+    .description("List AI features affected since a base ref")
     .requiredOption("--base <ref>", "Three-dot base, such as origin/main")
     .option("--project <dir>", "Project directory", ".")
     .option("--github-summary", "Print a GitHub Actions job summary")
@@ -1593,12 +1610,20 @@ export function createProgram(
       try {
         const contracts = await loadContracts(options.project);
         const changed = await changedFilesSince(options.project, options.base, deps.git);
+        const dependencies = await dependencyChangesSince(
+          options.project,
+          options.base,
+          changed,
+          deps.git,
+        );
         const { catalog } = await openContent(options, deps);
         const guides: Record<string, FeatureGuideContext> = {};
         for (const contract of contracts) {
           guides[contract.id] = guideContextFor(catalog, contract);
         }
-        const impact = assessChangeImpact(contracts, changed, guides);
+        const impact = assessChangeImpact(contracts, changed, guides, {
+          dependencyChanges: dependencies,
+        });
         if (options.json) {
           io.stdout(json({ ok: true, base: options.base, comparison: "three-dot", ...impact }));
           return;

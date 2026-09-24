@@ -1435,4 +1435,72 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(adoptedBody.touchedImplementation).toBe(false);
     await expect(stat(path.join(root, "app", "api", "support"))).rejects.toThrow();
   });
+
+  test("impacted follows contract, eval, and tested dependency versions", async function implicitImpact() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "promptmarket-implicit-"));
+    tempDirs.push(root);
+    await mkdir(path.join(root, ".promptmarket", "features"), { recursive: true });
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ dependencies: { ai: "^8.0.0", zod: "^3.23.0" } }),
+    );
+    await writeFile(
+      path.join(root, ".promptmarket", "features", "internal-docs-rag.yaml"),
+      [
+        "schemaVersion: 1",
+        "id: internal-docs-rag",
+        "goal: answer from internal docs",
+        "catalog:",
+        "  version: test",
+        "project:",
+        "  testedWith:",
+        "    ai: \"7\"",
+        "implementation:",
+        "  paths:",
+        "    - app/api/chat/**",
+        "eval:",
+        "  suite: .promptmarket/evals/internal-docs-rag/promptfooconfig.yaml",
+        "",
+      ].join("\n"),
+    );
+    await writeFile(
+      path.join(root, ".promptmarket", "features", "support-agent.yaml"),
+      [
+        "schemaVersion: 1",
+        "id: support-agent",
+        "goal: support",
+        "catalog:",
+        "  version: test",
+        "project:",
+        "  testedWith:",
+        "    zod: \"3\"",
+        "implementation:",
+        "  paths:",
+        "    - app/api/support/**",
+        "",
+      ].join("\n"),
+    );
+    const git = async function git(args: string[]) {
+      if (args[0] === "show" && args[1] === "origin/main:package.json") {
+        return JSON.stringify({ dependencies: { ai: "^7.1.0", zod: "^3.23.0" } });
+      }
+      if (args.includes("origin/main...HEAD")) {
+        return "package.json\n.promptmarket/features/internal-docs-rag.yaml\n.promptmarket/evals/internal-docs-rag/cases.yaml\n";
+      }
+      return "";
+    };
+    const impact = captureIo();
+    const impactCode = await run(
+      ["node", "promptmarket", "impacted", "--base", "origin/main", "--project", root, "--offline"],
+      impact,
+      { git },
+    );
+    expect(impactCode).toBe(0);
+    expect(impact.out()).toContain("internal-docs-rag");
+    expect(impact.out()).toContain(".promptmarket/features/internal-docs-rag.yaml");
+    expect(impact.out()).toContain(".promptmarket/evals/internal-docs-rag/cases.yaml");
+    expect(impact.out()).toContain("ai@7.1.0 → ai@8.0.0");
+    expect(impact.out()).toContain("Not impacted");
+    expect(impact.out()).toContain("support-agent");
+  });
 });
