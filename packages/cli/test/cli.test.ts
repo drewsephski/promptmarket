@@ -1188,6 +1188,8 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(workflow).toContain("force-run: true");
     expect(workflow).toContain("@promptmarket/cli feature check --all");
     expect(workflow).toContain("GITHUB_STEP_SUMMARY");
+    expect(workflow).toContain("@promptmarket/cli impacted --base");
+    expect(workflow).not.toContain("paths:");
     const again = captureIo();
     const againCode = await run(
       ["node", "promptmarket", "verify", "ci", "--github", "--project", root],
@@ -1309,5 +1311,128 @@ describe("promptmarket cli", function promptmarketCli() {
     const checkBody = JSON.parse(check.out()) as { ok: boolean };
     expect(checkCode).toBe(0);
     expect(checkBody.ok).toBe(true);
+  });
+
+  test("impacted, review, and verify changed follow implementation paths", async function changeAware() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "promptmarket-impact-"));
+    tempDirs.push(root);
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ dependencies: { next: "16.2.0", ai: "7.1.0" } }),
+    );
+    const init = captureIo();
+    const initCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "feature",
+        "init",
+        "add RAG over internal documentation",
+        "--id",
+        "internal-docs-rag",
+        "--path",
+        "app/api/chat/**",
+        "--path",
+        "lib/rag/**",
+        "--project",
+        root,
+        "--write",
+        "--offline",
+        "--json",
+      ],
+      init,
+    );
+    expect(initCode).toBe(0);
+    const contract = await readFile(
+      path.join(root, ".promptmarket", "features", "internal-docs-rag.yaml"),
+      "utf8",
+    );
+    expect(contract).toContain("app/api/chat/**");
+    await writeFile(
+      path.join(root, ".promptmarket", "features", "ai-project-manager.yaml"),
+      [
+        "schemaVersion: 1",
+        "id: ai-project-manager",
+        "goal: manage projects",
+        "catalog:",
+        "  version: test",
+        "implementation:",
+        "  paths:",
+        "    - convex/**",
+        "",
+      ].join("\n"),
+    );
+    const git = async function git(args: string[]) {
+      if (args.includes("origin/main...HEAD")) {
+        return "app/api/chat/route.ts\nlib/rag/retrieval.ts\n";
+      }
+      return "";
+    };
+    const impact = captureIo();
+    const impactCode = await run(
+      ["node", "promptmarket", "impacted", "--base", "origin/main", "--project", root, "--offline"],
+      impact,
+      { git },
+    );
+    expect(impactCode).toBe(0);
+    expect(impact.out()).toContain("internal-docs-rag");
+    expect(impact.out()).toContain("Impacted");
+    expect(impact.out()).toContain("✓ lib/rag/retrieval.ts");
+    expect(impact.out()).toContain("Not impacted");
+    expect(impact.out()).toContain("ai-project-manager");
+    expect(impact.out()).toContain("Vercel AI SDK");
+
+    const review = captureIo();
+    const reviewCode = await run(
+      ["node", "promptmarket", "feature", "review", "--base", "origin/main", "--project", root, "--offline"],
+      review,
+      { git },
+    );
+    expect(reviewCode).toBe(0);
+    expect(review.out()).toContain("retrieval implementation changed");
+    expect(review.out()).toContain("AI SDK route changed");
+    expect(review.out()).not.toContain("ai-project-manager");
+
+    const calls: string[] = [];
+    const changed = captureIo();
+    const changedCode = await run(
+      ["node", "promptmarket", "verify", "changed", "--base", "origin/main", "--project", root],
+      changed,
+      {
+        git,
+        command: async function command(_file, _args, cwd) {
+          calls.push(cwd);
+          return 0;
+        },
+      },
+    );
+    expect(changedCode).toBe(0);
+    expect(calls).toEqual([path.join(root, ".promptmarket", "evals", "internal-docs-rag")]);
+
+    const adopted = captureIo();
+    const adoptedCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "feature",
+        "adopt",
+        "--id",
+        "support-agent",
+        "--goal",
+        "support assistant with database tools",
+        "--path",
+        "app/api/support/**",
+        "--project",
+        root,
+        "--write",
+        "--offline",
+        "--json",
+      ],
+      adopted,
+    );
+    expect(adoptedCode).toBe(0);
+    const adoptedBody = JSON.parse(adopted.out()) as { touchedImplementation: boolean };
+    expect(adoptedBody.touchedImplementation).toBe(false);
+    await expect(stat(path.join(root, "app", "api", "support"))).rejects.toThrow();
   });
 });

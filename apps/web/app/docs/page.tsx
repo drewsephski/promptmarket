@@ -103,7 +103,11 @@ pnpm dlx @promptmarket/cli setup cursor --check`}
 pnpm dlx @promptmarket/cli doctor
 pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project . --format agent
 pnpm dlx @promptmarket/cli plan "add RAG over our documentation" --project .
-pnpm dlx @promptmarket/cli feature init "add RAG over our documentation" --project . --write
+pnpm dlx @promptmarket/cli feature init "add RAG over our documentation" --project . --write --path "app/api/chat/**"
+pnpm dlx @promptmarket/cli feature attach rag-internal-docs --path "lib/rag/**" --write
+pnpm dlx @promptmarket/cli impacted --base origin/main
+pnpm dlx @promptmarket/cli feature review --base origin/main
+pnpm dlx @promptmarket/cli verify changed --base origin/main
 pnpm dlx @promptmarket/cli feature status
 pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
@@ -113,7 +117,7 @@ pnpm dlx @promptmarket/cli guide ai-product-brief-builder`}
           label="Copy CLI examples"
         />
         <p className="note">
-          <code>feature init --write</code> stores a version-controlled contract for one AI feature. <code>feature status</code> checks that contract. <code>detect</code> fingerprints the current project from{" "}
+          <code>feature init --write</code> stores a version-controlled contract for one AI feature. <code>--path</code> records the files that feature owns. <code>feature attach</code> adds paths to an existing contract. <code>feature adopt</code> records a feature that already exists and does not edit its implementation. <code>impacted --base</code> lists features whose paths changed since that git ref, using the same three-dot comparison GitHub uses for a pull request, plus uncommitted files. <code>feature review --base</code> lists contract checks for those features. <code>verify changed --base</code> runs only their Promptfoo suites. <code>feature status</code> checks a contract. <code>detect</code> fingerprints the current project from{" "}
           <code>package.json</code> and config filenames. <code>doctor</code>{" "}
           compares those versions with the packages each guide was reproduced
           with. <code>context</code>{" "}

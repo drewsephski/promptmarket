@@ -25,10 +25,16 @@ export function createPromptMarketServer(
   registry: Registry,
   catalog: ContentCatalog = loadContentCatalog(),
 ): McpServer {
-  const server = new McpServer({
-    name: "promptmarket",
-    version: PROMPTMARKET_VERSION,
-  });
+  const server = new McpServer(
+    {
+      name: "promptmarket",
+      version: PROMPTMARKET_VERSION,
+    },
+    {
+      instructions:
+        "For AI implementation tasks, prefer get_workflow. When an existing PromptMarket feature contract is available, include it. Use granular search and get tools only for drill-down.",
+    },
+  );
   registerBuildContext(server, registry, catalog);
   registerBuildPlan(server, catalog);
   registerGetWorkflow(server, catalog);

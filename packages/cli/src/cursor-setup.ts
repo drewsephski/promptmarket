@@ -20,21 +20,22 @@ description: Use PromptMarket when implementing or debugging AI application feat
 alwaysApply: false
 ---
 
-When implementing or substantially modifying an AI feature:
+Before modifying AI-related code:
 
-1. Inspect the current repository.
-2. Before creating a new AI feature, call \`get_workflow\` with the user's goal and a project fingerprint.
-3. When modifying an existing AI feature, read \`.promptmarket/features/*.yaml\` first. Pass that contract as \`feature\` on \`get_workflow\`, then reconcile differences with the current request. Do not treat an established feature as a greenfield tutorial.
-4. \`get_workflow\` returns the same decision as \`build_context\` and \`build_plan\`, plus \`documentationTargets\`, \`debugTargets\`, \`evalTargets\`, and \`observabilityTargets\`. It does not read the repository, and it does not call Context7, Promptfoo, or Langfuse.
-5. Read \`documentationTargets\`. For each target, query Context7 for that library, the target reason, and the detected version. Treat Context7 as the source of truth for current library syntax.
-6. Treat PromptMarket as the source of truth for architecture, the AI engineering pattern, implementation sequence, prompting strategy, and which checks matter.
-7. If current documentation conflicts with a PromptMarket guide, follow the current documentation, adapt the guide, and mention the discrepancy.
-8. Implement using the existing repository's conventions. Do not paste instrumentation from memory.
-9. When behavior is wrong, read \`debugTargets\` and follow the diagnosis order. For \`ai-sdk-devtools\`, follow current AI SDK docs to register DevTools for the installed version, then run \`npx @ai-sdk/devtools@latest\`. DevTools stores prompts and tool data locally in plain text. Use it only in local development.
-10. Before considering the work complete, keep the feature contract in \`.promptmarket/features/\` with \`promptmarket feature init\`, then scaffold and run the Promptfoo checks with \`promptmarket verify run\`. Promptfoo owns the evaluator.
-11. Before merge, run \`promptmarket verify ci --github\` so the Promptfoo GitHub Action gates the pull request. Promptfoo posts the result and fails the job when the suite fails. \`promptmarket feature check --all\` fails only on objective contract problems.
-12. When production tracing is in scope, read \`observabilityTargets\`. For Langfuse, query current Langfuse and AI SDK docs, inspect any existing OpenTelemetry setup, and integrate without replacing an existing tracer. \`promptmarket observe setup langfuse\` prints packages, environment names, and metadata. It does not edit application code. Curated Langfuse dataset items become regression cases with \`promptmarket verify sync langfuse\`.
-13. Never assume external services or environment configuration exist merely because the guide requires them.
+1. Read \`.promptmarket/features/*.yaml\`.
+2. Compare the files you expect to edit with \`implementation.paths\`.
+3. If an existing feature owns those paths, treat its contract as the baseline, call \`get_workflow\` with that feature, and preserve its verification requirements.
+4. If no contract matches and the work creates a new AI capability, call \`get_workflow\`, then suggest \`promptmarket feature init\` with \`--path\` after implementation.
+5. \`get_workflow\` returns the same decision as \`build_context\` and \`build_plan\`, plus \`documentationTargets\`, \`debugTargets\`, \`evalTargets\`, and \`observabilityTargets\`. It does not read the repository, and it does not call Context7, Promptfoo, or Langfuse.
+6. Read \`documentationTargets\`. For each target, query Context7 for that library, the target reason, and the detected version. Treat Context7 as the source of truth for current library syntax.
+7. Treat PromptMarket as the source of truth for architecture, the AI engineering pattern, implementation sequence, prompting strategy, and which checks matter.
+8. If current documentation conflicts with a PromptMarket guide, follow the current documentation, adapt the guide, and mention the discrepancy.
+9. Implement using the existing repository's conventions. Do not paste instrumentation from memory.
+10. When behavior is wrong, read \`debugTargets\` and follow the diagnosis order. For \`ai-sdk-devtools\`, follow current AI SDK docs to register DevTools for the installed version, then run \`npx @ai-sdk/devtools@latest\`. DevTools stores prompts and tool data locally in plain text. Use it only in local development.
+11. Before considering the work complete, keep the feature contract in \`.promptmarket/features/\`. Own the files you touched with \`implementation.paths\`. Run \`promptmarket verify changed --base origin/main\` so only the impacted Promptfoo suite runs. Promptfoo owns the evaluator.
+12. Before merge, run \`promptmarket verify ci --github\` so the Promptfoo GitHub Action gates the pull request. The workflow computes impact inside the job and runs only the affected suites. Promptfoo posts the result and fails the job when the suite fails. \`promptmarket feature check --all\` fails only on objective contract problems.
+13. When production tracing is in scope, read \`observabilityTargets\`. For Langfuse, query current Langfuse and AI SDK docs, inspect any existing OpenTelemetry setup, and integrate without replacing an existing tracer. \`promptmarket observe setup langfuse\` prints packages, environment names, and metadata. It does not edit application code. Curated Langfuse dataset items become regression cases with \`promptmarket verify sync langfuse\`.
+14. Never assume external services or environment configuration exist merely because the guide requires them.
 
 A PromptMarket plan is curated knowledge from when the guide was written. It becomes a verified plan only after those documentation targets are reconciled with live library docs. Do not describe the plan as live-verified before that step.
 `;

@@ -1,11 +1,16 @@
 import { describe, expect, test } from "vitest";
 import {
+  assessChangeImpact,
   assessFeature,
   contractFromPlan,
   featureIdFromGoal,
+  formatChangeImpact,
+  formatFeatureReviews,
   loadContentCatalog,
   parseFeatureContract,
+  pathMatches,
   refreshFeature,
+  reviewFeatureChange,
   serializeFeatureContract,
   buildPlan,
 } from "../src/index.js";
@@ -110,5 +115,70 @@ describe("feature contracts", function featureContracts() {
     expect(diff.wrote).toEqual(expect.arrayContaining(["catalog.version", "catalog.guideVerifiedAt"]));
     expect(diff.next.guide).toBe(contract.guide);
     expect(diff.next.id).toBe(contract.id);
+  });
+
+  test("matches explicit implementation globs and reports impact", function impact() {
+    expect(pathMatches("app/api/chat/**", "app/api/chat/route.ts")).toBe(true);
+    expect(pathMatches("lib/rag/**", "lib/rag/retrieval.ts")).toBe(true);
+    expect(pathMatches("db/schema.ts", "db/schema.ts")).toBe(true);
+    expect(pathMatches("app/api/chat/**", "lib/rag/retrieval.ts")).toBe(false);
+
+    const rag = parseFeatureContract(`
+schemaVersion: 1
+id: internal-docs-rag
+goal: answer from internal docs
+pattern: rag
+guide: rag-knowledge-base
+catalog:
+  version: test
+implementation:
+  paths:
+    - app/api/chat/**
+    - lib/rag/**
+eval:
+  suite: .promptmarket/evals/internal-docs-rag/promptfooconfig.yaml
+`);
+    const manager = parseFeatureContract(`
+schemaVersion: 1
+id: ai-project-manager
+goal: manage projects
+catalog:
+  version: test
+implementation:
+  paths:
+    - convex/**
+`);
+    const impactReport = assessChangeImpact(
+      [rag, manager],
+      ["app/api/chat/route.ts", "lib/rag/retrieval.ts", "README.md"],
+      {
+        "internal-docs-rag": {
+          docs: ["Vercel AI SDK", "Drizzle"],
+          verification: ["An unsupported question does not hallucinate an answer"],
+        },
+      },
+    );
+    const text = formatChangeImpact(impactReport);
+    expect(text).toContain("internal-docs-rag");
+    expect(text).toContain("Impacted");
+    expect(text).toContain("✓ app/api/chat/route.ts");
+    expect(text).toContain("Promptfoo: .promptmarket/evals/internal-docs-rag");
+    expect(text).toContain("→ Vercel AI SDK");
+    expect(text).toContain("Not impacted");
+    expect(text).toContain("ai-project-manager");
+    expect(impactReport.features.find(function same(feature) {
+      return feature.id === "ai-project-manager";
+    })?.status).toBe("clear");
+
+    const review = reviewFeatureChange(rag, impactReport.changed, {
+      docs: ["Vercel AI SDK", "Drizzle"],
+      verification: ["An unsupported question does not hallucinate an answer"],
+    });
+    const reviewText = formatFeatureReviews([review]);
+    expect(reviewText).toContain("retrieval implementation changed");
+    expect(reviewText).toContain("AI SDK route changed");
+    expect(reviewText).toContain("1. An unsupported question does not hallucinate an answer");
+    expect(reviewText).toContain("Promptfoo RAG suite");
+    expect(reviewText).toContain("Vercel AI SDK");
   });
 });

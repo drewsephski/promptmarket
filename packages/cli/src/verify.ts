@@ -163,41 +163,41 @@ export function githubEvalWorkflow(): string {
 
 on:
   pull_request:
-    paths:
-      - ".promptmarket/evals/**"
-      - ".github/workflows/promptmarket-evals.yml"
-      - "app/**"
-      - "src/**"
-      - "packages/**"
   workflow_dispatch:
 
+# One workflow always starts. Impact is calculated inside so a path filter
+# cannot skip the job and leave a required check pending.
 # Promptfoo owns evaluation, assertions, scoring, and the pull request comment.
-# A failed assertion fails this job. Widen paths to the code provider.ts calls.
 
 jobs:
-  discover:
+  impact:
     runs-on: ubuntu-latest
     outputs:
-      suites: \${{ steps.list.outputs.suites }}
+      suites: \${{ steps.resolve.outputs.suites }}
     steps:
       - uses: actions/checkout@v4
-      - id: list
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+      - id: resolve
         run: |
-          if [ ! -d .promptmarket/evals ]; then
-            echo 'suites=[]' >> "$GITHUB_OUTPUT"
-            exit 0
+          if [ "\${{ github.event_name }}" = "pull_request" ]; then
+            base="\${{ github.event.pull_request.base.sha }}"
+          else
+            base="origin/\${{ github.event.repository.default_branch }}"
+            git fetch --no-tags origin "\${{ github.event.repository.default_branch }}"
           fi
-          mapfile -t dirs < <(find .promptmarket/evals -mindepth 1 -maxdepth 1 -type d -printf '%P\\n' | sort)
-          if [ \${#dirs[@]} -eq 0 ]; then
-            echo 'suites=[]' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          json=$(printf '%s\\n' "\${dirs[@]}" | jq -R . | jq -s -c .)
-          echo "suites=$json" >> "$GITHUB_OUTPUT"
+          npx --yes @promptmarket/cli impacted --base "$base" --json --offline > "$RUNNER_TEMP/impact.json"
+          node --input-type=module -e 'import { readFileSync } from "node:fs"; const impact = JSON.parse(readFileSync(process.argv[1], "utf8")); const suites = impact.features.filter((feature) => feature.status === "impacted" && feature.suite).map((feature) => feature.suite); process.stdout.write(JSON.stringify(suites));' "$RUNNER_TEMP/impact.json" > "$RUNNER_TEMP/suites.json"
+          echo "suites=$(cat "$RUNNER_TEMP/suites.json")" >> "$GITHUB_OUTPUT"
+          npx --yes @promptmarket/cli impacted --base "$base" --github-summary --offline >> "$GITHUB_STEP_SUMMARY"
 
   evaluate:
-    needs: discover
-    if: needs.discover.outputs.suites != '[]'
+    needs: impact
+    if: needs.impact.outputs.suites != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -205,7 +205,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: \${{ fromJson(needs.discover.outputs.suites) }}
+        suite: \${{ fromJson(needs.impact.outputs.suites) }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js
@@ -236,8 +236,8 @@ jobs:
           # Add the key provider.ts uses once it calls the app, for example OPENROUTER_API_KEY.
 
   report:
-    needs: evaluate
-    if: always()
+    needs: [impact, evaluate]
+    if: always() && needs.impact.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

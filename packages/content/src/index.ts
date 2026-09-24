@@ -35,20 +35,33 @@ export {
   formatPlan,
 } from "./format.js";
 export {
+  assessChangeImpact,
   assessFeature,
+  attachPaths,
   contractFromPlan,
   featureIdFromGoal,
+  formatChangeImpact,
+  formatChangeSummary,
   formatFeatureRefresh,
+  formatFeatureReviews,
   formatFeatureStatus,
   formatFeatureSummary,
+  matchingPaths,
+  normalizePaths,
   parseFeatureContract,
+  pathMatches,
   refreshFeature,
+  reviewFeatureChange,
   serializeFeatureContract,
+  type ChangeImpact,
   type FeatureAssessment,
   type FeatureCheck,
   type FeatureContract,
   type FeatureEvidence,
+  type FeatureGuideContext,
+  type FeatureImpact,
   type FeatureRefresh,
+  type FeatureReview,
 } from "./feature.js";
 export { contentMeta, contentVersionOf, type ContentMeta } from "./meta.js";
 export { PROMPTMARKET_VERSION } from "./version.js";

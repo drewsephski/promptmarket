@@ -48,6 +48,9 @@ export type FeatureContract = {
     testedWith: Record<string, string>;
     unsupported?: Record<string, string[]>;
   };
+  implementation?: {
+    paths: string[];
+  };
   eval?: {
     suite: string;
   };
@@ -124,6 +127,7 @@ export function contractFromPlan(
   plan: ImplementationPlan,
   catalogVersion: string,
   id?: string,
+  paths?: string[],
 ): FeatureContract {
   const guide = plan.guide;
   const testedWith: Record<string, string> = {};
@@ -151,6 +155,10 @@ export function contractFromPlan(
     contract.eval = {
       suite: `.promptmarket/evals/${suiteId}/promptfooconfig.yaml`,
     };
+  }
+  const owned = normalizePaths(paths ?? []);
+  if (owned.length > 0) {
+    contract.implementation = { paths: owned };
   }
   if (plan.observabilityTargets.some(function langfuse(target) {
     return target.provider === "langfuse";
@@ -246,6 +254,21 @@ export function parseFeatureContract(raw: string, file = "feature"): FeatureCont
       project.unsupported = unsupported;
     }
     contract.project = project;
+  }
+  if (parsed.implementation !== undefined) {
+    if (!isRecord(parsed.implementation) || !Array.isArray(parsed.implementation.paths)) {
+      throw new Error(`${file}: implementation.paths must be a list of path globs`);
+    }
+    const paths = parsed.implementation.paths.map(function pathOf(item) {
+      if (typeof item !== "string" || item.trim().length === 0) {
+        throw new Error(`${file}: implementation.paths must be non-empty globs`);
+      }
+      return item.trim();
+    });
+    if (paths.length === 0) {
+      throw new Error(`${file}: implementation.paths must list at least one glob`);
+    }
+    contract.implementation = { paths };
   }
   if (parsed.eval !== undefined) {
     if (!isRecord(parsed.eval)) {
@@ -501,6 +524,7 @@ export function refreshFeature(
 ): FeatureRefresh {
   const next = contractFromPlan(plan, catalogVersion, current.id);
   next.ci = current.ci;
+  next.implementation = current.implementation;
   next.project = {
     testedWith: next.project?.testedWith ?? {},
     ...(current.project?.unsupported ? { unsupported: current.project.unsupported } : {}),
@@ -585,4 +609,333 @@ export function formatFeatureRefresh(refresh: FeatureRefresh, written: boolean):
       }), ""]
     : ["[No files changed]", ""];
   return `${[...refresh.lines, ...tail].join("\n")}\n`;
+}
+
+export type FeatureGuideContext = {
+  docs: string[];
+  verification: string[];
+};
+
+export type FeatureImpactStatus = "impacted" | "clear" | "unmapped";
+
+export type FeatureImpact = {
+  id: string;
+  status: FeatureImpactStatus;
+  changed: string[];
+  checks: string[];
+  docs: string[];
+  suite?: string;
+};
+
+export type ChangeImpact = {
+  changed: string[];
+  features: FeatureImpact[];
+};
+
+export type FeatureReview = {
+  id: string;
+  risks: string[];
+  recheck: string[];
+  docs: string[];
+};
+
+const RISK_RULES: Array<{ label: string; test: (file: string) => boolean }> = [
+  {
+    label: "retrieval implementation changed",
+    test: function retrieval(file) {
+      return /(^|\/)(retrieval|retriever|rag|embed|embedding|embeddings|chunk|chunks)(\/|\.|$)/i.test(file);
+    },
+  },
+  {
+    label: "AI SDK route changed",
+    test: function route(file) {
+      return /\/api\//.test(file) && /route\.(ts|tsx|js|jsx)$/.test(file);
+    },
+  },
+  {
+    label: "schema changed",
+    test: function schema(file) {
+      return /(^|\/)schema\.(ts|prisma)$/.test(file) || /\/db\//.test(file);
+    },
+  },
+  {
+    label: "tool implementation changed",
+    test: function tool(file) {
+      return /(^|\/)tools?\//.test(file);
+    },
+  },
+];
+
+export function normalizePaths(paths: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const entry of paths) {
+    const value = entry.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+    if (value.length === 0 || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    normalized.push(value);
+  }
+  return normalized;
+}
+
+export function attachPaths(contract: FeatureContract, paths: string[]): FeatureContract {
+  const next = normalizePaths([...(contract.implementation?.paths ?? []), ...paths]);
+  if (next.length === 0) {
+    throw new Error("Pass at least one --path glob.");
+  }
+  return {
+    ...contract,
+    implementation: { paths: next },
+  };
+}
+
+function globSource(pattern: string): string {
+  let source = "";
+  for (let index = 0; index < pattern.length; index += 1) {
+    const current = pattern[index] ?? "";
+    const next = pattern[index + 1];
+    if (current === "*" && next === "*") {
+      const slash = pattern[index + 2] === "/";
+      source += slash ? "(?:[^/]+/)*" : ".*";
+      index += slash ? 2 : 1;
+      continue;
+    }
+    if (current === "*") {
+      source += "[^/]*";
+      continue;
+    }
+    source += current.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return source;
+}
+
+export function pathMatches(pattern: string, file: string): boolean {
+  const normalized = file.replace(/\\/g, "/").replace(/^\.\//, "");
+  return new RegExp(`^${globSource(pattern.replace(/\\/g, "/").replace(/^\.\//, ""))}$`).test(normalized);
+}
+
+export function matchingPaths(paths: string[], files: string[]): string[] {
+  return files.filter(function owned(file) {
+    return paths.some(function matches(pattern) {
+      return pathMatches(pattern, file);
+    });
+  });
+}
+
+function checklistName(pattern: string | undefined): string | undefined {
+  if (!pattern) {
+    return undefined;
+  }
+  if (pattern === "rag") {
+    return "RAG verification checklist";
+  }
+  return `${pattern} verification checklist`;
+}
+
+function promptfooLabel(contract: FeatureContract): string | undefined {
+  if (!contract.eval) {
+    return undefined;
+  }
+  return `Promptfoo: ${contract.eval.suite.replace(/\/promptfooconfig\.yaml$/, "")}`;
+}
+
+function suiteId(contract: FeatureContract): string | undefined {
+  if (!contract.eval) {
+    return undefined;
+  }
+  const directory = contract.eval.suite.replace(/\/[^/]+$/, "");
+  return directory.split("/").pop();
+}
+
+function recommendedChecks(contract: FeatureContract): string[] {
+  const checks = [
+    promptfooLabel(contract),
+    "feature check",
+    checklistName(contract.pattern),
+  ].filter(function present(value): value is string {
+    return Boolean(value);
+  });
+  return checks;
+}
+
+export function assessChangeImpact(
+  contracts: FeatureContract[],
+  changedFiles: string[],
+  guides: Record<string, FeatureGuideContext> = {},
+): ChangeImpact {
+  const changed = normalizePaths(changedFiles);
+  const features = contracts.map(function impact(contract) {
+    const paths = contract.implementation?.paths ?? [];
+    const docs = guides[contract.id]?.docs ?? [];
+    if (paths.length === 0) {
+      const unmapped: FeatureImpact = {
+        id: contract.id,
+        status: "unmapped",
+        changed: [],
+        checks: [],
+        docs,
+      };
+      return unmapped;
+    }
+    const owned = matchingPaths(paths, changed);
+    if (owned.length === 0) {
+      const clear: FeatureImpact = {
+        id: contract.id,
+        status: "clear",
+        changed: [],
+        checks: [],
+        docs: [],
+      };
+      return clear;
+    }
+    const suite = suiteId(contract);
+    const hit: FeatureImpact = {
+      id: contract.id,
+      status: "impacted",
+      changed: owned,
+      checks: recommendedChecks(contract),
+      docs,
+      ...(suite ? { suite } : {}),
+    };
+    return hit;
+  });
+  return { changed, features };
+}
+
+function riskLabels(files: string[]): string[] {
+  const labels: string[] = [];
+  for (const rule of RISK_RULES) {
+    if (files.some(rule.test)) {
+      labels.push(rule.label);
+    }
+  }
+  const unlabeled = files.filter(function unmatched(file) {
+    return !RISK_RULES.some(function rule(item) {
+      return item.test(file);
+    });
+  });
+  for (const file of unlabeled) {
+    labels.push(`owned path changed: ${file}`);
+  }
+  return labels;
+}
+
+export function reviewFeatureChange(
+  contract: FeatureContract,
+  changedFiles: string[],
+  guide?: FeatureGuideContext,
+): FeatureReview {
+  const owned = matchingPaths(contract.implementation?.paths ?? [], normalizePaths(changedFiles));
+  const promptfoo = contract.eval
+    ? `Promptfoo ${contract.pattern === "rag" ? "RAG" : contract.pattern ?? "feature"} suite`
+    : undefined;
+  return {
+    id: contract.id,
+    risks: riskLabels(owned),
+    recheck: [...(guide?.verification ?? []), ...(promptfoo ? [promptfoo] : [])],
+    docs: guide?.docs ?? [],
+  };
+}
+
+export function formatChangeImpact(impact: ChangeImpact): string {
+  const lines = ["PromptMarket Change Impact", ""];
+  const impacted = impact.features.filter(function hit(feature) {
+    return feature.status === "impacted";
+  });
+  const clear = impact.features.filter(function miss(feature) {
+    return feature.status === "clear";
+  });
+  const unmapped = impact.features.filter(function open(feature) {
+    return feature.status === "unmapped";
+  });
+  if (impacted.length === 0 && clear.length === 0 && unmapped.length === 0) {
+    lines.push("No feature contracts.", "");
+    return `${lines.join("\n")}\n`;
+  }
+  for (const feature of impacted) {
+    lines.push(feature.id, "Impacted", "", "Changed");
+    for (const file of feature.changed) {
+      lines.push(`✓ ${file}`);
+    }
+    lines.push("", "Recommended checks");
+    for (const check of feature.checks) {
+      lines.push(`→ ${check}`);
+    }
+    if (feature.docs.length > 0) {
+      lines.push("", "Docs to re-check");
+      for (const doc of feature.docs) {
+        lines.push(`→ ${doc}`);
+      }
+    }
+    lines.push("");
+  }
+  if (clear.length > 0) {
+    lines.push("Not impacted", ...clear.map(function name(feature) {
+      return feature.id;
+    }), "");
+  }
+  if (unmapped.length > 0) {
+    lines.push(
+      "No ownership map",
+      ...unmapped.map(function name(feature) {
+        return `${feature.id}`;
+      }),
+      "Attach paths with promptmarket feature attach <id> --path \"<glob>\" --write",
+      "",
+    );
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function formatChangeSummary(impact: ChangeImpact): string {
+  const lines = ["## PromptMarket", ""];
+  lines.push(`${impact.features.length} AI features`, "");
+  for (const feature of impact.features) {
+    if (feature.status === "impacted") {
+      lines.push(`### ${feature.id} — impacted`, "", "Changed:");
+      for (const file of feature.changed) {
+        lines.push(`- ${file}`);
+      }
+      lines.push("");
+      for (const check of feature.checks) {
+        lines.push(`→ ${check}`);
+      }
+      lines.push("");
+      continue;
+    }
+    const label = feature.status === "clear" ? "not impacted" : "no ownership map";
+    lines.push(`### ${feature.id} — ${label}`, "");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function formatFeatureReviews(reviews: FeatureReview[]): string {
+  if (reviews.length === 0) {
+    return "PromptMarket Feature Review\n\nNo impacted feature contracts.\n";
+  }
+  const lines = ["PromptMarket Feature Review", ""];
+  for (const review of reviews) {
+    lines.push(review.id, "", "Risk areas");
+    if (review.risks.length === 0) {
+      lines.push("- none");
+    } else {
+      for (const risk of review.risks) {
+        lines.push(`- ${risk}`);
+      }
+    }
+    lines.push("", "Re-check");
+    review.recheck.forEach(function item(entry, index) {
+      lines.push(`${index + 1}. ${entry}`);
+    });
+    if (review.docs.length > 0) {
+      lines.push("", "Current documentation targets");
+      for (const doc of review.docs) {
+        lines.push(`- ${doc}`);
+      }
+    }
+    lines.push("");
+  }
+  return `${lines.join("\n")}\n`;
 }

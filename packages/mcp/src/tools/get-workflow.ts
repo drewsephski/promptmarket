@@ -41,6 +41,11 @@ const featureSchema = z
         guideVerifiedAt: z.string().optional(),
       })
       .optional(),
+    implementation: z
+      .object({
+        paths: z.array(z.string()),
+      })
+      .optional(),
   })
   .optional()
   .describe(

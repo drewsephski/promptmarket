@@ -1,6 +1,8 @@
 import { Command, CommanderError } from "commander";
 import {
+  assessChangeImpact,
   assessFeature,
+  attachPaths,
   buildContext,
   buildPlan,
   ContentNotFoundError,
@@ -9,7 +11,10 @@ import {
   doctorGuides,
   featureIdFromGoal,
   formatAgentContext,
+  formatChangeImpact,
+  formatChangeSummary,
   formatFeatureRefresh,
+  formatFeatureReviews,
   formatFeatureStatus,
   formatFeatureSummary,
   formatPlan,
@@ -17,9 +22,12 @@ import {
   formatContextText,
   otherProjectLabels,
   refreshFeature,
+  reviewFeatureChange,
   type ContentCatalog,
   type ContextDetail,
   type FeatureAssessment,
+  type FeatureContract,
+  type FeatureGuideContext,
   type ProjectContext,
   type PromptDocument,
 } from "@promptmarket/content";
@@ -58,6 +66,7 @@ import {
   formatLangfuseSetup,
   formatObservation,
 } from "./observe.js";
+import { changedFilesSince } from "./changed-files.js";
 import {
   featureEvidence,
   FEATURE_ROOT,
@@ -271,6 +280,43 @@ async function openContent(
     fetch: deps.contentFetch,
     now: deps.contentNow,
   });
+}
+
+function collectPath(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
+}
+
+async function loadContracts(root: string): Promise<FeatureContract[]> {
+  const loaded = await readFeatureContracts(root);
+  const malformed = loaded.filter(function bad(item) {
+    return "error" in item;
+  });
+  if (malformed.length > 0) {
+    throw new Error(malformed.map(function message(item) {
+      return "error" in item ? item.error : "Malformed feature contract";
+    }).join("\n"));
+  }
+  return loaded.flatMap(function contractOf(item) {
+    return "contract" in item ? [item.contract] : [];
+  });
+}
+
+function guideContextFor(
+  catalog: ContentCatalog,
+  contract: FeatureContract,
+): FeatureGuideContext {
+  const guide = contract.guide
+    ? catalog.guides.find(function same(item) {
+        return item.slug === contract.guide;
+      })
+    : undefined;
+  const docs = guide?.evidence.docs.map(function library(doc) {
+    return doc.library;
+  }) ?? [];
+  return {
+    docs: [...new Set(docs)],
+    verification: guide?.verification ?? [],
+  };
 }
 
 function writeFailure(
@@ -681,6 +727,69 @@ export function createProgram(
     });
 
   verify
+    .command("changed")
+    .description("Run Promptfoo only for features whose implementation paths changed")
+    .option("--base <ref>", "Three-dot base, such as origin/main")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .action(async function verifyChangedAction(options: {
+      base?: string;
+      project: string;
+      json?: boolean;
+    }) {
+      try {
+        if (!options.base) {
+          throw new Error("Pass --base, for example origin/main.");
+        }
+        const contracts = await loadContracts(options.project);
+        const changed = await changedFilesSince(
+          options.project,
+          options.base,
+          deps.git,
+        );
+        const impact = assessChangeImpact(contracts, changed);
+        const suites = impact.features.filter(function hit(feature) {
+          return feature.status === "impacted" && feature.suite;
+        });
+        if (options.json) {
+          io.stdout(json({
+            ok: true,
+            suites: suites.map(function name(feature) {
+              return feature.suite;
+            }),
+          }));
+        } else if (suites.length === 0) {
+          io.stdout("No impacted Promptfoo suites.\n");
+          return;
+        } else {
+          io.stdout(
+            [
+              "Promptfoo",
+              ...suites.map(function line(feature) {
+                return `.promptmarket/evals/${feature.suite}`;
+              }),
+              "",
+            ].join("\n"),
+          );
+        }
+        const runner = deps.command ?? runInherited;
+        for (const feature of suites) {
+          const code = await runner(
+            "npx",
+            [...PROMPTFOO_EVAL],
+            path.join(options.project, EVAL_ROOT, feature.suite ?? ""),
+          );
+          if (code !== 0) {
+            state.exitCode = code;
+            return;
+          }
+        }
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  verify
     .command("ci")
     .description("Scaffold a Promptfoo GitHub Action that gates pull requests")
     .option("--github", "Write .github/workflows/promptmarket-evals.yml")
@@ -1004,6 +1113,7 @@ export function createProgram(
     .description("Create a feature contract and Promptfoo suite from a plan")
     .argument("<query>", "Feature to record, in plain language")
     .option("--id <id>", "Contract id. Defaults to a slug of the goal")
+    .option("--path <glob>", "Implementation path this feature owns", collectPath, [])
     .option("--project <dir>", "Project directory", ".")
     .option("--write", "Write the contract and eval suite")
     .option("--json", "Print deterministic JSON to stdout")
@@ -1015,6 +1125,7 @@ export function createProgram(
       query: string,
       options: {
         id?: string;
+        path?: string[];
         project: string;
         write?: boolean;
         json?: boolean;
@@ -1031,7 +1142,12 @@ export function createProgram(
         if (!plan.guide) {
           throw new Error("No catalog guide matched this feature. A contract needs a guide identity.");
         }
-        const contract = contractFromPlan(plan, version, options.id ?? featureIdFromGoal(query));
+        const contract = contractFromPlan(
+          plan,
+          version,
+          options.id ?? featureIdFromGoal(query),
+          options.path,
+        );
         const destination = path.join(FEATURE_ROOT, `${contract.id}.yaml`);
         if (!options.write) {
           if (options.json) {
@@ -1246,6 +1362,248 @@ export function createProgram(
           return;
         }
         io.stdout(formatFeatureRefresh(diff, written));
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  feature
+    .command("attach")
+    .description("Add implementation paths to an existing feature contract")
+    .argument("<id>", "Feature id")
+    .option("--path <glob>", "Implementation path this feature owns", collectPath, [])
+    .option("--write", "Update the contract")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .action(async function featureAttachAction(
+      id: string,
+      options: { path?: string[]; write?: boolean; project: string; json?: boolean },
+    ) {
+      try {
+        const paths = options.path ?? [];
+        if (paths.length === 0) {
+          throw new Error("Pass at least one --path glob.");
+        }
+        const contracts = await loadContracts(options.project);
+        const current = contracts.find(function same(contract) {
+          return contract.id === id;
+        });
+        if (!current) {
+          throw new Error(`No feature contract named ${id}.`);
+        }
+        const next = attachPaths(current, paths);
+        if (options.write) {
+          await writeFeatureContract(options.project, next);
+        }
+        if (options.json) {
+          io.stdout(json({ ok: true, wrote: Boolean(options.write), contract: next }));
+          return;
+        }
+        io.stdout(
+          [
+            path.join(FEATURE_ROOT, `${next.id}.yaml`),
+            ...(next.implementation?.paths ?? []).map(function line(glob) {
+              return `  ${glob}`;
+            }),
+            "",
+            options.write ? "Updated." : "Dry run. Pass --write to update the contract.",
+            "",
+          ].join("\n"),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  feature
+    .command("adopt")
+    .description("Record an existing AI feature without editing its implementation")
+    .requiredOption("--goal <text>", "What the existing feature does")
+    .option("--id <id>", "Contract id. Defaults to a slug of the goal")
+    .option("--path <glob>", "Implementation path this feature owns", collectPath, [])
+    .option("--write", "Write the contract and eval starter")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function featureAdoptAction(options: {
+      goal: string;
+      id?: string;
+      path?: string[];
+      write?: boolean;
+      project: string;
+      json?: boolean;
+      offline?: boolean;
+      refresh?: boolean;
+      contentApi?: string;
+      content?: string;
+    }) {
+      try {
+        const paths = options.path ?? [];
+        if (paths.length === 0) {
+          throw new Error("Pass at least one --path glob. Adopt does not infer ownership.");
+        }
+        const { catalog, version } = await openContent(options, deps);
+        const project = detectProject(options.project);
+        const plan = buildPlan(catalog, { query: options.goal, project });
+        if (!plan.guide) {
+          throw new Error("No catalog guide matched this feature. A contract needs a guide identity.");
+        }
+        const contract = contractFromPlan(
+          plan,
+          version,
+          options.id ?? featureIdFromGoal(options.goal),
+          paths,
+        );
+        const destination = path.join(FEATURE_ROOT, `${contract.id}.yaml`);
+        if (!options.write) {
+          if (options.json) {
+            io.stdout(json({ ok: true, wrote: false, contract, touchedImplementation: false }));
+            return;
+          }
+          io.stdout(
+            [
+              destination,
+              ...(contract.implementation?.paths ?? []),
+              "",
+              "Dry run. Pass --write to record the contract. Implementation files stay untouched.",
+              "",
+            ].join("\n"),
+          );
+          return;
+        }
+        try {
+          await access(path.join(options.project, destination));
+          throw new Error(`${destination} already exists.`);
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("already exists")) {
+            throw error;
+          }
+        }
+        await writeFeatureContract(options.project, contract);
+        let files: string[] = [];
+        if (plan.evalTargets[0] && contract.eval) {
+          files = await writeEvalSuite(options.project, plan.evalTargets[0], {
+            directoryName: contract.id,
+            tracing: contract.observability?.provider === "langfuse",
+          });
+        }
+        if (options.json) {
+          io.stdout(json({
+            ok: true,
+            wrote: true,
+            touchedImplementation: false,
+            contract,
+            files,
+          }));
+          return;
+        }
+        io.stdout(
+          [
+            destination,
+            ...(contract.implementation?.paths ?? []).map(function line(glob) {
+              return `  ${glob}`;
+            }),
+            ...(contract.eval ? [path.dirname(contract.eval.suite)] : []),
+            ...files.map(function line(file) {
+              return `  ${file}`;
+            }),
+            "",
+            "Implementation files were not modified.",
+            "",
+          ].join("\n"),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  feature
+    .command("review")
+    .description("Review a change against the AI feature contracts it touches")
+    .option("--base <ref>", "Three-dot base, such as origin/main")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function featureReviewAction(options: {
+      base?: string;
+      project: string;
+      json?: boolean;
+      offline?: boolean;
+      refresh?: boolean;
+      contentApi?: string;
+      content?: string;
+    }) {
+      try {
+        if (!options.base) {
+          throw new Error("Pass --base, for example origin/main.");
+        }
+        const contracts = await loadContracts(options.project);
+        const changed = await changedFilesSince(options.project, options.base, deps.git);
+        const { catalog } = await openContent(options, deps);
+        const impact = assessChangeImpact(contracts, changed);
+        const reviews = impact.features.flatMap(function review(feature) {
+          if (feature.status !== "impacted") {
+            return [];
+          }
+          const contract = contracts.find(function same(item) {
+            return item.id === feature.id;
+          });
+          if (!contract) {
+            return [];
+          }
+          return [reviewFeatureChange(contract, changed, guideContextFor(catalog, contract))];
+        });
+        if (options.json) {
+          io.stdout(json({ ok: true, reviews }));
+          return;
+        }
+        io.stdout(formatFeatureReviews(reviews));
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("impacted")
+    .description("List AI features whose implementation paths changed since a base ref")
+    .requiredOption("--base <ref>", "Three-dot base, such as origin/main")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--github-summary", "Print a GitHub Actions job summary")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function impactedAction(options: {
+      base: string;
+      project: string;
+      githubSummary?: boolean;
+      json?: boolean;
+      offline?: boolean;
+      refresh?: boolean;
+      contentApi?: string;
+      content?: string;
+    }) {
+      try {
+        const contracts = await loadContracts(options.project);
+        const changed = await changedFilesSince(options.project, options.base, deps.git);
+        const { catalog } = await openContent(options, deps);
+        const guides: Record<string, FeatureGuideContext> = {};
+        for (const contract of contracts) {
+          guides[contract.id] = guideContextFor(catalog, contract);
+        }
+        const impact = assessChangeImpact(contracts, changed, guides);
+        if (options.json) {
+          io.stdout(json({ ok: true, base: options.base, comparison: "three-dot", ...impact }));
+          return;
+        }
+        io.stdout(options.githubSummary ? formatChangeSummary(impact) : formatChangeImpact(impact));
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
       }

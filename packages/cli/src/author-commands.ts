@@ -38,6 +38,7 @@ export type CliDeps = {
     args: string[],
     cwd: string,
   ) => Promise<number>;
+  git?: (args: string[], cwd: string) => Promise<string>;
   langfuseFetch?: typeof fetch;
 };
 

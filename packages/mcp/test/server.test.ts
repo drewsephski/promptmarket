@@ -161,6 +161,8 @@ describe("promptmarket mcp", function promptmarketMcp() {
       };
     });
 
+    expect(client.getInstructions()).toContain("prefer get_workflow");
+
     expect(tools).toEqual([
       {
         name: "build_context",
