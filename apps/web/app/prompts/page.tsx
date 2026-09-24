@@ -56,7 +56,8 @@ export default async function PromptsPage({ searchParams }: PromptsPageProps) {
   const needle = q.toLowerCase();
   const results = needle
     ? prompts.filter(function byQuery(prompt) {
-        const haystack = `${prompt.title} ${prompt.description} ${prompt.slug}`.toLowerCase();
+        const haystack =
+          `${prompt.title} ${prompt.description} ${prompt.slug}`.toLowerCase();
         return haystack.includes(needle);
       })
     : prompts;
@@ -86,7 +87,10 @@ export default async function PromptsPage({ searchParams }: PromptsPageProps) {
         </label>
       </form>
       <nav className="chip-row" aria-label="Categories">
-        <a href={chipHref("", q)} aria-current={selectedCategory ? undefined : "page"}>
+        <a
+          href={chipHref("", q)}
+          aria-current={selectedCategory ? undefined : "page"}
+        >
           All
         </a>
         {PROMPT_CATEGORIES.filter(function skipCoding(item) {

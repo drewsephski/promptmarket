@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CommandBlock } from "./command-block";
 import { HOSTED_MCP_URL } from "../lib/present";
+import { useTabKeyboard } from "../lib/use-tab-keyboard";
 
 const CURSOR_COMMAND =
   "pnpm dlx @promptmarket/cli setup cursor --write --with-context7";
@@ -27,9 +28,30 @@ export function DocsStart() {
     setChoice(id);
   }
 
+  const choiceIds = choices.map(function idOf(item) {
+    return item.id;
+  });
+  const handleChoiceKeys = useTabKeyboard(
+    choiceIds,
+    choice,
+    handleChoice,
+    function docsTabId(id) {
+      return `docs-${id}`;
+    },
+  );
+
   return (
-    <section className="docs-start" id="cursor" aria-label="How to use PromptMarket">
-      <div className="docs-choices" role="tablist">
+    <section
+      className="docs-start"
+      id="cursor"
+      aria-label="How to use PromptMarket"
+    >
+      <div
+        className="docs-choices"
+        role="tablist"
+        aria-label="Install options"
+        onKeyDown={handleChoiceKeys}
+      >
         {choices.map(function renderChoice(item) {
           const selected = choice === item.id;
           return (
@@ -40,6 +62,7 @@ export function DocsStart() {
               aria-selected={selected}
               id={`docs-${item.id}`}
               aria-controls="docs-choice-panel"
+              tabIndex={selected ? 0 : -1}
               onClick={function onChoice() {
                 handleChoice(item.id);
               }}
@@ -71,7 +94,9 @@ export function DocsStart() {
         {choice === "cli" ? (
           <>
             <h2>CLI</h2>
-            <p>Resolve a feature, print a plan, and check a feature contract.</p>
+            <p>
+              Resolve a feature, print a plan, and check a feature contract.
+            </p>
             <CommandBlock command={CLI_COMMANDS} label="Copy CLI examples" />
             <p>
               <a href="/docs/cli">View all CLI commands</a>
@@ -91,7 +116,9 @@ export function DocsStart() {
         {choice === "web" ? (
           <>
             <h2>Web</h2>
-            <p>Resolve a feature in the browser, then open the guide or prompt.</p>
+            <p>
+              Resolve a feature in the browser, then open the guide or prompt.
+            </p>
             <ul className="docs-checks">
               <li>
                 <a href="/context">Context</a> picks the pattern and plan

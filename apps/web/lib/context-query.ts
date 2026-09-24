@@ -41,7 +41,9 @@ export type ContextFilters = {
   orm: string;
 };
 
-export function projectFromFilters(filters: ContextFilters): ProjectContext | undefined {
+export function projectFromFilters(
+  filters: ContextFilters,
+): ProjectContext | undefined {
   const framework = FRAMEWORKS[filters.framework];
   const sdk = SDKS[filters.ai];
   const provider = PROVIDERS[filters.provider];
@@ -69,7 +71,10 @@ export function projectFromFilters(filters: ContextFilters): ProjectContext | un
   return project;
 }
 
-export function contextSearchParams(query: string, filters: ContextFilters): string {
+export function contextSearchParams(
+  query: string,
+  filters: ContextFilters,
+): string {
   const params = new URLSearchParams();
   if (query.trim()) {
     params.set("q", query.trim());

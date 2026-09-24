@@ -42,9 +42,12 @@ function stagesFor(plan: ImplementationPlan): Stage[] {
       title: "Current docs",
       lines:
         docs.length > 0
-          ? ["Context7", ...docs.map(function nameOf(target) {
-              return target.library;
-            })]
+          ? [
+              "Context7",
+              ...docs.map(function nameOf(target) {
+                return target.library;
+              }),
+            ]
           : ["No documentation targets"],
     },
     {

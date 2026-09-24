@@ -216,6 +216,11 @@ input {
   transform: translateY(-1px);
 }
 
+.nav-inline a[aria-current="page"] {
+  color: var(--ink);
+  background: rgba(28, 23, 18, 0.06);
+}
+
 .menu-toggle {
   position: relative;
   width: 2.7rem;
@@ -2350,6 +2355,11 @@ textarea.control {
 @media (max-width: 640px) {
   .workflow-stages {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workflow-stage {
+    min-height: 2.75rem;
+    padding-bottom: 0.35rem;
   }
 }
 
