@@ -6,7 +6,7 @@ import {
 } from "./context.js";
 import type { ContentCatalog } from "./load.js";
 import type { ProjectContext } from "./project.js";
-import type { Guide, GuideSection } from "./types.js";
+import type { Guide, GuideSection, GuideSourceReference } from "./types.js";
 
 const FRAMING = new Set([
   "what-were-building",
@@ -51,6 +51,23 @@ export type PlanReference = {
   url: string;
 };
 
+export type DocumentationTarget = {
+  package: string;
+  library: string;
+  detectedVersion?: string;
+  testedLine?: string;
+  reason: string;
+};
+
+export type CuratedReference = GuideSourceReference & {
+  url: string;
+};
+
+export type EvidenceTargets = {
+  docs: DocumentationTarget[];
+  references: CuratedReference[];
+};
+
 export type ImplementationPlan = {
   goal: string;
   project?: ProjectContext;
@@ -70,6 +87,8 @@ export type ImplementationPlan = {
   prompt?: ContextPrompt;
   verification: string[];
   references: PlanReference[];
+  documentationTargets: DocumentationTarget[];
+  evidenceTargets: EvidenceTargets;
 };
 
 export type BuildPlanOptions = {
@@ -115,6 +134,38 @@ function implementationSections(
   });
 }
 
+function documentationTargetsFor(
+  guide: Guide | undefined,
+  project: ProjectContext | undefined,
+): DocumentationTarget[] {
+  if (!guide) {
+    return [];
+  }
+  return guide.evidence.docs.map(function target(doc) {
+    const detected = project?.versions[doc.package];
+    const tested = guide.testedWith?.[doc.package];
+    return {
+      package: doc.package,
+      library: doc.library,
+      ...(detected ? { detectedVersion: detected } : {}),
+      ...(tested ? { testedLine: tested } : {}),
+      reason: doc.reason,
+    };
+  });
+}
+
+function curatedReferences(guide: Guide | undefined): CuratedReference[] {
+  if (!guide) {
+    return [];
+  }
+  return guide.evidence.references.map(function reference(item) {
+    return {
+      ...item,
+      url: `https://github.com/${item.repo}`,
+    };
+  });
+}
+
 export function buildPlan(
   catalog: ContentCatalog,
   options: BuildPlanOptions,
@@ -151,6 +202,8 @@ export function buildPlan(
       url: presented.url,
     });
   }
+  const documentationTargets = documentationTargetsFor(guide, options.project);
+  const sourceReferences = curatedReferences(guide);
   return {
     goal: options.query,
     ...(options.project ? { project: options.project } : {}),
@@ -186,5 +239,10 @@ export function buildPlan(
     ...(prompt ? { prompt } : {}),
     verification: guide?.verification ?? [],
     references,
+    documentationTargets,
+    evidenceTargets: {
+      docs: documentationTargets,
+      references: sourceReferences,
+    },
   };
 }

@@ -1,9 +1,17 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { detectProject, type ProjectContext } from "@promptmarket/content";
 
 export const PROMPTMARKET_MCP_URL = "https://promptmarket.sh/mcp";
+export const CONTEXT7_SETUP_COMMAND = [
+  "npx",
+  "--yes",
+  "ctx7",
+  "setup",
+  "--cursor",
+  "--project",
+] as const;
 export const MCP_FILE = ".cursor/mcp.json";
 export const RULE_FILE = ".cursor/rules/promptmarket.mdc";
 
@@ -12,16 +20,25 @@ description: Use PromptMarket when implementing or debugging AI application feat
 alwaysApply: false
 ---
 
-When the task involves AI application architecture, prompting, RAG,
-structured outputs, tool calling, agents, evals, or related features:
+When implementing or substantially modifying an AI feature:
 
-1. Call \`build_context\` with project metadata.
-2. If implementation work is required, call \`build_plan\`.
-3. Inspect the actual repository.
-4. Adapt the plan to existing architecture.
-5. Implement using repository conventions.
-6. Use PromptMarket verification criteria before declaring completion.
-7. Never assume external services or environment configuration exist merely because the guide requires them.
+1. Inspect the current repository.
+2. Call \`build_context\` with the user's goal, framework, and relevant packages and versions.
+3. Call \`build_plan\`.
+4. Read \`documentationTargets\` from the plan.
+5. For any external library whose API matters:
+   - use Context7 \`resolve-library-id\`
+   - select the best official or high-quality match
+   - query Context7 docs for the exact implementation concept
+   - include the detected package version when the target has one
+6. Treat Context7 as the source of truth for current library syntax.
+   Treat PromptMarket as the source of truth for architecture, the AI engineering pattern, implementation sequence, prompting strategy, and verification criteria.
+7. If current documentation conflicts with a PromptMarket guide, follow the current documentation, adapt the guide, and mention the discrepancy.
+8. Implement using the existing repository's conventions.
+9. Run PromptMarket's verification checks before considering the work complete.
+10. Never assume external services or environment configuration exist merely because the guide requires them.
+
+A PromptMarket plan is curated knowledge from when the guide was written. It becomes a verified plan only after those documentation targets are reconciled with live library docs. Do not describe the plan as live-verified before that step.
 `;
 
 export type SetupMode = "dry-run" | "write" | "remove" | "check";
@@ -398,4 +415,37 @@ export async function applyCursorSetup(
   if (inspected.ruleRaw !== CURSOR_RULE) {
     await writeAtomic(rulePath, CURSOR_RULE);
   }
+}
+
+export function context7Configured(config: JsonRecord): boolean {
+  const servers = isRecord(config.mcpServers) ? config.mcpServers : {};
+  for (const [name, value] of Object.entries(servers)) {
+    if (name === "context7") {
+      return true;
+    }
+    if (
+      isRecord(value) &&
+      typeof value.url === "string" &&
+      value.url.includes("mcp.context7.com")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function handoffContext7(root: string): Promise<number> {
+  const [command, ...args] = CONTEXT7_SETUP_COMMAND;
+  return new Promise(function run(resolve, reject) {
+    const child = spawn(command, args, {
+      cwd: path.resolve(root),
+      stdio: "inherit",
+    });
+    child.on("error", function failed(error) {
+      reject(error);
+    });
+    child.on("exit", function exited(code) {
+      resolve(code ?? 1);
+    });
+  });
 }

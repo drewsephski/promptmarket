@@ -51,6 +51,7 @@ export default function DocsPage() {
         <CommandBlock
           command={`pnpm dlx @promptmarket/cli setup cursor
 pnpm dlx @promptmarket/cli setup cursor --write
+pnpm dlx @promptmarket/cli setup cursor --write --with-context7
 pnpm dlx @promptmarket/cli setup cursor --check`}
           label="Copy Cursor setup"
         />
@@ -59,7 +60,10 @@ pnpm dlx @promptmarket/cli setup cursor --check`}
           <code>.cursor/mcp.json</code> and writes{" "}
           <code>.cursor/rules/promptmarket.mdc</code>. Other MCP servers stay
           in place. <code>--dry-run</code> is the default.{" "}
-          <code>--remove</code> deletes only the PromptMarket entries.
+          <code>--remove</code> deletes only the PromptMarket entries.{" "}
+          <code>--with-context7</code> detects an existing Context7 server and,
+          if one is missing, hands off to <code>npx ctx7 setup --cursor --project</code>.
+          PromptMarket does not copy or store that API key.
         </p>
       </Bezel>
 

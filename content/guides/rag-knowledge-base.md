@@ -68,6 +68,24 @@ verification:
   - API credentials remain server-only
   - Stored and query embeddings use the same model
   - Retrieved chunks are visible while debugging
+evidence:
+  docs:
+    - package: ai
+      library: Vercel AI SDK
+      reason: Plan uses embedMany, streamText, and AI SDK streaming
+    - package: "@openrouter/ai-sdk-provider"
+      library: OpenRouter AI SDK Provider
+      reason: Plan uses OpenRouter chat and embedding models
+    - package: drizzle-orm
+      library: Drizzle ORM
+      reason: Plan uses vector columns and cosineDistance
+    - package: "@neondatabase/serverless"
+      library: Neon
+      reason: Plan stores embeddings in Neon Postgres with pgvector
+  references:
+    - type: github
+      repo: vercel/ai-sdk-rag-starter
+      reason: AI SDK RAG reference implementation with Drizzle and pgvector
 ---
 
 ## What we're building

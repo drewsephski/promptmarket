@@ -92,6 +92,34 @@ const outputSchema = z.object({
       url: z.string(),
     }),
   ),
+  documentationTargets: z.array(
+    z.object({
+      package: z.string(),
+      library: z.string(),
+      detectedVersion: z.string().optional(),
+      testedLine: z.string().optional(),
+      reason: z.string(),
+    }),
+  ),
+  evidenceTargets: z.object({
+    docs: z.array(
+      z.object({
+        package: z.string(),
+        library: z.string(),
+        detectedVersion: z.string().optional(),
+        testedLine: z.string().optional(),
+        reason: z.string(),
+      }),
+    ),
+    references: z.array(
+      z.object({
+        type: z.literal("github"),
+        repo: z.string(),
+        reason: z.string(),
+        url: z.string(),
+      }),
+    ),
+  }),
 });
 
 const annotations = {
@@ -109,7 +137,7 @@ export function registerBuildPlan(
     {
       title: "Build plan",
       description:
-        "After build_context, when the task is to implement an AI feature. Returns an architecture, implementation steps, a starting prompt, and verification checks. Does not call a model and does not edit code.",
+        "After build_context, when the task is to implement an AI feature. Returns an architecture, implementation steps, a starting prompt, verification checks, and documentation targets for live library docs. Does not call a model and does not edit code.",
       inputSchema,
       outputSchema,
       annotations,

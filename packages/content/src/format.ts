@@ -222,6 +222,29 @@ export function formatPlan(plan: ImplementationPlan): string {
   if (plan.compatibility.length > 0) {
     lines.push("Compatibility", ...formatCompatibility(plan.compatibility), "");
   }
+  if (plan.documentationTargets.length > 0) {
+    lines.push(
+      "Live docs",
+      "Curated PromptMarket plan. Confirm these APIs against current documentation before copying syntax.",
+    );
+    for (const target of plan.documentationTargets) {
+      const version = target.detectedVersion
+        ? ` detected ${target.detectedVersion}`
+        : "";
+      const tested = target.testedLine ? ` guide line ${target.testedLine}` : "";
+      lines.push(`○ ${target.library} (${target.package})${version}${tested}`);
+      lines.push(target.reason);
+    }
+    lines.push("");
+  }
+  if (plan.evidenceTargets.references.length > 0) {
+    lines.push("Reference implementations");
+    for (const reference of plan.evidenceTargets.references) {
+      lines.push(`${reference.repo} — ${reference.reason}`);
+      lines.push(reference.url);
+    }
+    lines.push("");
+  }
   return `${lines.join("\n")}\n`;
 }
 

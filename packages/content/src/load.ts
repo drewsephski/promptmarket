@@ -14,7 +14,10 @@ import {
   type DiagramId,
   type Difficulty,
   type Guide,
+  type GuideDocTarget,
+  type GuideEvidence,
   type GuideSection,
+  type GuideSourceReference,
   type GuideSummary,
   type LearnSections,
   type LearnSummary,
@@ -595,6 +598,99 @@ function guideSections(body: string, file: string): GuideSection[] {
   return sections;
 }
 
+const PACKAGE_NAME = /^[@a-z0-9][a-z0-9@/._-]*$/i;
+const GITHUB_REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
+function optionalEvidence(
+  record: Record<string, unknown>,
+  file: string,
+): GuideEvidence {
+  if (!("evidence" in record) || record.evidence == null) {
+    return { docs: [], references: [] };
+  }
+  const value = record.evidence;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new ContentError(file, "evidence must be a mapping");
+  }
+  const evidence = value as Record<string, unknown>;
+  rejectUnknownKeys(evidence, ["docs", "references"], file);
+  return {
+    docs: evidenceDocs(evidence.docs, file),
+    references: evidenceReferences(evidence.references, file),
+  };
+}
+
+function evidenceDocs(value: unknown, file: string): GuideDocTarget[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ContentError(file, "evidence.docs must be a non-empty list");
+  }
+  const seen = new Set<string>();
+  return value.map(function item(entry, index) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new ContentError(file, `evidence.docs[${index}] must be a mapping`);
+    }
+    const record = entry as Record<string, unknown>;
+    rejectUnknownKeys(record, ["package", "library", "reason"], file);
+    const packageName = requireString(record, "package", file);
+    if (!PACKAGE_NAME.test(packageName)) {
+      throw new ContentError(
+        file,
+        `evidence.docs[${index}].package is not a package name`,
+      );
+    }
+    if (seen.has(packageName)) {
+      throw new ContentError(file, `evidence.docs repeats ${packageName}`);
+    }
+    seen.add(packageName);
+    return {
+      package: packageName,
+      library: requireString(record, "library", file),
+      reason: requireString(record, "reason", file),
+    };
+  });
+}
+
+function evidenceReferences(
+  value: unknown,
+  file: string,
+): GuideSourceReference[] {
+  if (value == null) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new ContentError(file, "evidence.references must be a list");
+  }
+  return value.map(function item(entry, index) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new ContentError(
+        file,
+        `evidence.references[${index}] must be a mapping`,
+      );
+    }
+    const record = entry as Record<string, unknown>;
+    rejectUnknownKeys(record, ["type", "repo", "reason"], file);
+    const type = requireString(record, "type", file);
+    if (type !== "github") {
+      throw new ContentError(
+        file,
+        `evidence.references[${index}].type must be github`,
+      );
+    }
+    const repo = requireString(record, "repo", file);
+    if (!GITHUB_REPO.test(repo)) {
+      throw new ContentError(
+        file,
+        `evidence.references[${index}].repo must be owner/name`,
+      );
+    }
+    return {
+      type: "github",
+      repo,
+      reason: requireString(record, "reason", file),
+    };
+  });
+}
+
 function loadGuide(filePath: string): Guide {
   const file = path.relative(process.cwd(), filePath);
   const slug = path.basename(filePath, ".md");
@@ -622,6 +718,7 @@ function loadGuide(filePath: string): Guide {
       "relatedTopics",
       "relatedPrompts",
       "verification",
+      "evidence",
     ],
     file,
   );
@@ -659,6 +756,7 @@ function loadGuide(filePath: string): Guide {
     relatedTopics: requireSlugList(data, "relatedTopics", file, false),
     relatedPrompts: requireSlugList(data, "relatedPrompts", file, false),
     verification: optionalStringList(data, "verification", file),
+    evidence: optionalEvidence(data, file),
     sections: guideSections(body, file),
     href: `/guides/${slug}`,
   };

@@ -60,6 +60,27 @@ verification:
   - A product idea returns a brief that matches the schema
   - Invalid model output is rejected instead of saved
   - The OpenRouter key stays server-side
+evidence:
+  docs:
+    - package: ai
+      library: Vercel AI SDK
+      reason: Plan uses structured output from a chat model
+    - package: "@openrouter/ai-sdk-provider"
+      library: OpenRouter AI SDK Provider
+      reason: Plan calls an OpenRouter chat model
+    - package: zod
+      library: Zod
+      reason: Plan validates model output before saving it
+    - package: drizzle-orm
+      library: Drizzle ORM
+      reason: Plan stores the brief in Postgres
+    - package: "@neondatabase/serverless"
+      library: Neon
+      reason: Plan persists briefs in Neon Postgres
+  references:
+    - type: github
+      repo: vercel/ai
+      reason: Official AI SDK examples for structured generation
 ---
 
 ## What we're building

@@ -987,4 +987,136 @@ describe("promptmarket cli", function promptmarketCli() {
       stat(path.join(root, ".cursor", "rules", "promptmarket.mdc")),
     ).rejects.toThrow();
   });
+
+  test("setup cursor hands Context7 to its official installer", async function setupsContext7() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "promptmarket-context7-"));
+    tempDirs.push(root);
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ dependencies: {} }));
+    const calls: string[] = [];
+
+    const dry = captureIo();
+    const dryCode = await run(
+      ["node", "promptmarket", "setup", "cursor", "--with-context7", "--dir", root],
+      dry,
+      {
+        context7Handoff: async function handoff(directory) {
+          calls.push(directory);
+          return 0;
+        },
+      },
+    );
+    expect(dryCode).toBe(0);
+    expect(dry.out()).toContain("npx --yes ctx7 setup --cursor --project");
+    expect(calls).toEqual([]);
+    expect(dry.out()).not.toContain("CONTEXT7_API_KEY");
+
+    const write = captureIo();
+    const writeCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "setup",
+        "cursor",
+        "--write",
+        "--with-context7",
+        "--dir",
+        root,
+      ],
+      write,
+      {
+        context7Handoff: async function handoff(directory) {
+          calls.push(directory);
+          return 0;
+        },
+      },
+    );
+    expect(writeCode).toBe(0);
+    expect(calls).toEqual([root]);
+    const mcp = await readFile(path.join(root, ".cursor", "mcp.json"), "utf8");
+    expect(mcp).toContain("promptmarket");
+    expect(mcp).not.toContain("context7");
+    expect(mcp).not.toContain("CONTEXT7_API_KEY");
+    const rule = await readFile(
+      path.join(root, ".cursor", "rules", "promptmarket.mdc"),
+      "utf8",
+    );
+    expect(rule).toContain("documentationTargets");
+    expect(rule).toContain("resolve-library-id");
+
+    await writeFile(
+      path.join(root, ".cursor", "mcp.json"),
+      `${JSON.stringify({
+        mcpServers: {
+          promptmarket: { url: "https://promptmarket.sh/mcp" },
+          context7: {
+            url: "https://mcp.context7.com/mcp",
+            headers: { CONTEXT7_API_KEY: "secret" },
+          },
+        },
+      })}\n`,
+    );
+    const again = captureIo();
+    const againCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "setup",
+        "cursor",
+        "--write",
+        "--with-context7",
+        "--dir",
+        root,
+      ],
+      again,
+      {
+        context7Handoff: async function handoff(directory) {
+          calls.push(directory);
+          return 0;
+        },
+      },
+    );
+    expect(againCode).toBe(0);
+    expect(again.out()).toContain("already configured");
+    expect(calls).toEqual([root]);
+    expect(again.out()).not.toContain("secret");
+  });
+
+  test("research stays optional until a documentation provider runs", async function researches() {
+    const missing = captureIo();
+    const missingCode = await run(
+      ["node", "promptmarket", "research", "add RAG over internal documentation", "--json", "--offline"],
+      missing,
+    );
+    expect(missingCode).toBe(1);
+    expect(missing.out()).toContain("OPENROUTER_API_KEY");
+    expect(missing.out()).toContain("CONTEXT7_API_KEY");
+
+    const io = captureIo();
+    const code = await run(
+      ["node", "promptmarket", "research", "add RAG over internal documentation", "--json", "--offline"],
+      io,
+      {
+        documentationProvider: {
+          async resolveLibrary(input) {
+            return { libraryId: "/vercel/ai", name: input.library };
+          },
+          async queryDocumentation(input) {
+            return `docs for ${input.libraryId}`;
+          },
+        },
+      },
+    );
+    expect(code).toBe(0);
+    const body = JSON.parse(io.out()) as {
+      kind: string;
+      plan: { documentationTargets: Array<{ package: string }> };
+      evidence: Array<{ libraryId?: string; documentation: string }>;
+    };
+    expect(body.kind).toBe("verified_plan");
+    expect(body.plan.documentationTargets.map(function packageOf(target) {
+      return target.package;
+    })).toContain("ai");
+    expect(body.evidence[0]?.libraryId).toBe("/vercel/ai");
+    expect(body.evidence[0]?.documentation).toBe("docs for /vercel/ai");
+  });
 });

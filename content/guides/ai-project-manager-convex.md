@@ -60,6 +60,24 @@ verification:
   - The assistant creates a task that appears in the list
   - A tool call updates the same task the user named
   - The model cannot write to Convex without a tool
+evidence:
+  docs:
+    - package: ai
+      library: Vercel AI SDK
+      reason: Plan uses tool, inputSchema, and streamText
+    - package: "@ai-sdk/react"
+      library: AI SDK React
+      reason: Plan streams the assistant with useChat
+    - package: "@openrouter/ai-sdk-provider"
+      library: OpenRouter AI SDK Provider
+      reason: Plan calls an OpenRouter chat model
+    - package: convex
+      library: Convex
+      reason: Plan runs tools as Convex queries and mutations
+  references:
+    - type: github
+      repo: get-convex/agent
+      reason: Maintained Convex tool-calling reference
 ---
 
 ## What we're building

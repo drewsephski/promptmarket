@@ -20,6 +20,7 @@ import {
   type RecipeDraft,
   type RecipeIssue,
 } from "@promptmarket/registry";
+import type { DocumentationProvider } from "./documentation.js";
 import { createRegistry } from "./registry-option.js";
 
 export type CliDeps = {
@@ -30,6 +31,8 @@ export type CliDeps = {
   contentCacheDir?: string;
   contentNow?: () => number;
   cursorAgent?: boolean;
+  context7Handoff?: (root: string) => Promise<number>;
+  documentationProvider?: DocumentationProvider;
 };
 
 type Io = {

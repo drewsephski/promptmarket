@@ -179,6 +179,46 @@ export default async function ContextPage({ searchParams }: ContextPageProps) {
               );
             })}
           </ol>
+          {plan.documentationTargets.length > 0 ? (
+            <>
+              <h3>Live docs recommended</h3>
+              <p className="note">
+                This is a PromptMarket plan. Confirm these libraries against
+                current documentation before copying syntax from the guide.
+              </p>
+              <ul>
+                {plan.documentationTargets.map(function renderTarget(target) {
+                  const version = target.detectedVersion
+                    ? ` ${target.detectedVersion}`
+                    : "";
+                  return (
+                    <li key={target.package}>
+                      <strong>
+                        {target.library}
+                        {version}
+                      </strong>
+                      <p>{target.reason}</p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : null}
+          {plan.evidenceTargets.references.length > 0 ? (
+            <>
+              <h3>Reference implementations</h3>
+              <ul>
+                {plan.evidenceTargets.references.map(function renderReference(reference) {
+                  return (
+                    <li key={reference.repo}>
+                      <a href={reference.url}>{reference.repo}</a>
+                      <p>{reference.reason}</p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : null}
           {plan.verification.length > 0 ? (
             <>
               <h3>Verification</h3>

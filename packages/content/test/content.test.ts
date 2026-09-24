@@ -396,6 +396,42 @@ Hello {{input}}
     expect(plan.requirements.some(function required(note) {
       return note.label === "pgvector" && note.status === "required";
     })).toBe(true);
+    expect(
+      plan.documentationTargets.map(function packageOf(target) {
+        return target.package;
+      }),
+    ).toEqual([
+      "ai",
+      "@openrouter/ai-sdk-provider",
+      "drizzle-orm",
+      "@neondatabase/serverless",
+    ]);
+    expect(plan.documentationTargets.map(function libraryOf(target) {
+      return target.library;
+    })).toEqual([
+      "Vercel AI SDK",
+      "OpenRouter AI SDK Provider",
+      "Drizzle ORM",
+      "Neon",
+    ]);
+    expect(plan.documentationTargets[0]).toMatchObject({
+      detectedVersion: "7.0.0",
+      testedLine: "7",
+    });
+    expect(plan.evidenceTargets.docs).toBe(plan.documentationTargets);
+    expect(plan.evidenceTargets.references).toEqual([
+      {
+        type: "github",
+        repo: "vercel/ai-sdk-rag-starter",
+        reason: "AI SDK RAG reference implementation with Drizzle and pgvector",
+        url: "https://github.com/vercel/ai-sdk-rag-starter",
+      },
+    ]);
+    expect(
+      plan.documentationTargets.some(function extra(target) {
+        return target.package === "next" || target.package === "zod";
+      }),
+    ).toBe(false);
   });
 
   test("targets debug sections without changing the concept", function debugSections() {

@@ -165,6 +165,23 @@ export type GuideSection = {
   markdown: string;
 };
 
+export type GuideDocTarget = {
+  package: string;
+  library: string;
+  reason: string;
+};
+
+export type GuideSourceReference = {
+  type: "github";
+  repo: string;
+  reason: string;
+};
+
+export type GuideEvidence = {
+  docs: GuideDocTarget[];
+  references: GuideSourceReference[];
+};
+
 export type Guide = {
   slug: string;
   title: string;
@@ -183,6 +200,7 @@ export type Guide = {
   relatedTopics: string[];
   relatedPrompts: string[];
   verification: string[];
+  evidence: GuideEvidence;
   sections: GuideSection[];
   href: string;
 };

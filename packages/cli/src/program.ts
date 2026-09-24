@@ -17,11 +17,21 @@ import {
 } from "@promptmarket/content";
 import {
   applyCursorSetup,
+  context7Configured,
+  CONTEXT7_SETUP_COMMAND,
   cursorAgentInstalled,
+  handoffContext7,
+  inspectCursorSetup,
   planCursorSetup,
   renderSetupReport,
   type SetupMode,
 } from "./cursor-setup.js";
+import { groundPlan } from "./documentation.js";
+import {
+  createContext7Provider,
+  missingResearchCredentialsMessage,
+  researchCredentials,
+} from "./context7-provider.js";
 import { CLI_VERSION, resolveContent } from "./content-source.js";
 import {
   findOutdatedRecipes,
@@ -493,6 +503,60 @@ export function createProgram(
     });
 
   program
+    .command("research")
+    .description(
+      "Optional. Reconcile a PromptMarket plan with live Context7 docs. Requires API keys.",
+    )
+    .argument("<query>", "Feature to research, in plain language")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--project <dir>", "Tailor the plan to a project directory")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function researchAction(
+      query: string,
+      options: {
+        json?: boolean;
+        project?: string;
+        offline?: boolean;
+        refresh?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const provider =
+          deps.documentationProvider ??
+          (researchCredentials() ? await createContext7Provider() : undefined);
+        if (!provider) {
+          throw new Error(missingResearchCredentialsMessage());
+        }
+        const { catalog } = await openContent(options, deps);
+        const project = options.project
+          ? detectProject(options.project)
+          : undefined;
+        const plan = buildPlan(catalog, { query, project });
+        const verified = await groundPlan(plan, provider);
+        if (options.json) {
+          io.stdout(json({ ok: true, ...verified }));
+          return;
+        }
+        io.stdout(formatPlan(verified.plan));
+        io.stdout("Verified plan\nEvidence from Context7. PromptMarket did not replace the guide.\n");
+        for (const item of verified.evidence) {
+          io.stdout(`${item.library} (${item.package})\n${item.question}\n`);
+          if (item.documentation) {
+            io.stdout(`${item.documentation}\n`);
+          }
+          io.stdout("\n");
+        }
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
     .command("doctor")
     .description("Compare detected package versions with guide compatibility")
     .argument("[dir]", "Project directory", ".")
@@ -534,12 +598,17 @@ export function createProgram(
     .option("--dry-run", "Print the changes without writing files")
     .option("--remove", "Remove the PromptMarket MCP server and project rule")
     .option("--check", "Report whether Cursor is configured for PromptMarket")
+    .option(
+      "--with-context7",
+      "Hand off to Context7's official Cursor setup when it is not already configured",
+    )
     .option("--dir <dir>", "Project directory", ".")
     .action(async function setupCursorAction(options: {
       write?: boolean;
       dryRun?: boolean;
       remove?: boolean;
       check?: boolean;
+      withContext7?: boolean;
       dir: string;
     }) {
       const selected = [options.write, options.dryRun, options.remove, options.check].filter(
@@ -569,6 +638,26 @@ export function createProgram(
           await applyCursorSetup(options.dir, mode);
         }
         io.stdout(renderSetupReport(report));
+        if (options.withContext7 && mode !== "remove") {
+          const inspected = await inspectCursorSetup(options.dir, mode);
+          const configured = context7Configured(inspected.mcpConfig);
+          const command = CONTEXT7_SETUP_COMMAND.join(" ");
+          if (configured) {
+            io.stdout("Context7\n  already configured\n");
+          } else if (mode === "write") {
+            io.stdout(`Context7\n  handoff\n  ${command}\n`);
+            const handoff = deps.context7Handoff ?? handoffContext7;
+            const code = await handoff(options.dir);
+            if (code !== 0) {
+              state.exitCode = code;
+              io.stderr("Context7 setup did not finish. PromptMarket was still installed.\n");
+            }
+          } else {
+            io.stdout(
+              `Context7\n  not configured\n  Re-run with --write to hand off: ${command}\n`,
+            );
+          }
+        }
         if (mode === "check" && !report.ready) {
           state.exitCode = 1;
         }
