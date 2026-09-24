@@ -1,17 +1,25 @@
 import { Command, CommanderError } from "commander";
 import {
+  assessFeature,
   buildContext,
   buildPlan,
   ContentNotFoundError,
+  contractFromPlan,
   detectProject,
   doctorGuides,
+  featureIdFromGoal,
   formatAgentContext,
+  formatFeatureRefresh,
+  formatFeatureStatus,
+  formatFeatureSummary,
   formatPlan,
   formatCompatibility,
   formatContextText,
   otherProjectLabels,
+  refreshFeature,
   type ContentCatalog,
   type ContextDetail,
+  type FeatureAssessment,
   type ProjectContext,
   type PromptDocument,
 } from "@promptmarket/content";
@@ -26,7 +34,7 @@ import {
   renderSetupReport,
   type SetupMode,
 } from "./cursor-setup.js";
-import { access, mkdir, readdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { groundPlan } from "./documentation.js";
 import {
@@ -50,6 +58,18 @@ import {
   formatLangfuseSetup,
   formatObservation,
 } from "./observe.js";
+import {
+  featureEvidence,
+  FEATURE_ROOT,
+  readFeatureContracts,
+  writeFeatureContract,
+} from "./features.js";
+import {
+  includeProductionCases,
+  listDatasetItems,
+  productionCases,
+  productionCasesYaml,
+} from "./langfuse-sync.js";
 import {
   EVAL_ROOT,
   EVAL_WORKFLOW,
@@ -618,7 +638,11 @@ export function createProgram(
             throw error;
           }
         }
-        const files = await writeEvalSuite(options.project, target);
+        const files = await writeEvalSuite(options.project, target, {
+          tracing: plan.observabilityTargets.some(function langfuse(item) {
+            return item.provider === "langfuse";
+          }),
+        });
         if (options.json) {
           io.stdout(
             json({
@@ -707,6 +731,98 @@ export function createProgram(
             "Promptfoo runs the suites, posts the pull request comment, and fails the job when an assertion fails.",
             "",
           ].join("\n"),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  verify
+    .command("sync")
+    .description("Copy curated Langfuse dataset items into a Promptfoo regression file")
+    .argument("<provider>", "Observability provider")
+    .option("--feature <id>", "Feature contract id")
+    .option("--dataset <name>", "Langfuse dataset name")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .action(async function verifySyncAction(
+      provider: string,
+      options: {
+        feature?: string;
+        dataset?: string;
+        project: string;
+        json?: boolean;
+      },
+    ) {
+      try {
+        if (provider !== "langfuse") {
+          throw new Error("Langfuse is the only dataset source PromptMarket syncs.");
+        }
+        if (!options.feature || !options.dataset) {
+          throw new Error(
+            "Usage: promptmarket verify sync langfuse --feature <id> --dataset <name>",
+          );
+        }
+        const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
+        const secretKey = process.env.LANGFUSE_SECRET_KEY;
+        if (!publicKey || !secretKey) {
+          throw new Error(
+            "Set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY. Sync reads curated dataset items and does not read raw traces.",
+          );
+        }
+        const loaded = await readFeatureContracts(options.project);
+        const match = loaded.find(function same(item) {
+          return "contract" in item && item.contract.id === options.feature;
+        });
+        if (!match || !("contract" in match)) {
+          throw new Error(`No feature contract named ${options.feature}.`);
+        }
+        const items = await listDatasetItems(options.dataset, {
+          publicKey,
+          secretKey,
+          baseUrl: process.env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com",
+          fetch: deps.langfuseFetch ?? fetch,
+        });
+        const translated = productionCases(items);
+        if (translated.cases.length === 0) {
+          throw new Error(
+            "No dataset items had an expected output. PromptMarket does not turn a raw production response into the expected answer.",
+          );
+        }
+        const suiteDir = path.dirname(path.join(options.project, match.contract.eval?.suite ?? path.join(EVAL_ROOT, options.feature, "promptfooconfig.yaml")));
+        await mkdir(suiteDir, { recursive: true });
+        const relative = path.join(path.relative(options.project, suiteDir), "production-cases.yaml");
+        await writeFile(path.join(suiteDir, "production-cases.yaml"), productionCasesYaml(translated.cases), "utf8");
+        const configPath = path.join(suiteDir, "promptfooconfig.yaml");
+        try {
+          const config = await readFile(configPath, "utf8");
+          await writeFile(configPath, includeProductionCases(config), "utf8");
+        } catch (error) {
+          if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") {
+            throw error;
+          }
+        }
+        const payload = {
+          ok: true,
+          feature: options.feature,
+          dataset: options.dataset,
+          file: relative,
+          cases: translated.cases.length,
+          skipped: translated.skipped,
+        };
+        if (options.json) {
+          io.stdout(json(payload));
+          return;
+        }
+        io.stdout(
+          [
+            `Wrote ${relative}`,
+            `${translated.cases.length} curated cases`,
+            translated.skipped > 0 ? `${translated.skipped} skipped without an expected output` : "",
+            "",
+          ].filter(function present(line) {
+            return line.length > 0;
+          }).join("\n") + "\n",
         );
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
@@ -874,6 +990,262 @@ export function createProgram(
           return;
         }
         io.stdout(formatDoctor(project, guides));
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  const feature = program
+    .command("feature")
+    .description("Version-controlled contracts for AI features in this repository");
+
+  feature
+    .command("init")
+    .description("Create a feature contract and Promptfoo suite from a plan")
+    .argument("<query>", "Feature to record, in plain language")
+    .option("--id <id>", "Contract id. Defaults to a slug of the goal")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--write", "Write the contract and eval suite")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function featureInitAction(
+      query: string,
+      options: {
+        id?: string;
+        project: string;
+        write?: boolean;
+        json?: boolean;
+        offline?: boolean;
+        refresh?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const { catalog, version } = await openContent(options, deps);
+        const project = detectProject(options.project);
+        const plan = buildPlan(catalog, { query, project });
+        if (!plan.guide) {
+          throw new Error("No catalog guide matched this feature. A contract needs a guide identity.");
+        }
+        const contract = contractFromPlan(plan, version, options.id ?? featureIdFromGoal(query));
+        const destination = path.join(FEATURE_ROOT, `${contract.id}.yaml`);
+        if (!options.write) {
+          if (options.json) {
+            io.stdout(json({ ok: true, wrote: false, contract }));
+            return;
+          }
+          io.stdout(
+            [
+              destination,
+              contract.eval?.suite ?? "",
+              "",
+              "Dry run. Pass --write to create the contract.",
+              "",
+            ].filter(function present(line) {
+              return line.length > 0;
+            }).join("\n") + "\n",
+          );
+          return;
+        }
+        const contractPath = path.join(options.project, destination);
+        try {
+          await access(contractPath);
+          throw new Error(`${destination} already exists.`);
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("already exists")) {
+            throw error;
+          }
+        }
+        await writeFeatureContract(options.project, contract);
+        let files: string[] = [];
+        if (plan.evalTargets[0] && contract.eval) {
+          files = await writeEvalSuite(options.project, plan.evalTargets[0], {
+            directoryName: contract.id,
+            tracing: contract.observability?.provider === "langfuse",
+          });
+        }
+        if (options.json) {
+          io.stdout(json({ ok: true, wrote: true, contract, files }));
+          return;
+        }
+        io.stdout(
+          [
+            destination,
+            ...(contract.eval ? [path.dirname(contract.eval.suite)] : []),
+            ...files.map(function line(file) {
+              return `  ${file}`;
+            }),
+            "",
+          ].join("\n"),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  async function loadAssessments(
+    root: string,
+    flags: ContentFlags,
+  ): Promise<{ assessments: FeatureAssessment[]; failed: boolean }> {
+    const loaded = await readFeatureContracts(root);
+    const malformed = loaded.filter(function bad(item) {
+      return "error" in item;
+    });
+    if (malformed.length > 0) {
+      throw new Error(malformed.map(function message(item) {
+        return "error" in item ? item.error : "Malformed feature contract";
+      }).join("\n"));
+    }
+    const { catalog } = await openContent(flags, deps);
+    const project = detectProject(root);
+    const assessments: FeatureAssessment[] = [];
+    for (const item of loaded) {
+      if (!("contract" in item)) {
+        continue;
+      }
+      const evidence = await featureEvidence(root, item.contract, project);
+      assessments.push(assessFeature(item.contract, catalog, project, evidence));
+    }
+    return {
+      assessments,
+      failed: assessments.some(function broken(item) {
+        return item.errors.length > 0;
+      }),
+    };
+  }
+
+  feature
+    .command("status")
+    .description("Report each feature contract against the catalog and project")
+    .argument("[id]", "One feature id")
+    .option("--all", "Included for parity with feature check")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--github-summary", "Print a GitHub Actions job summary")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function featureStatusAction(
+      id: string | undefined,
+      options: {
+        all?: boolean;
+        project: string;
+        githubSummary?: boolean;
+        json?: boolean;
+        offline?: boolean;
+        refresh?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const { assessments } = await loadAssessments(options.project, options);
+        const selected = id
+          ? assessments.filter(function same(item) {
+              return item.id === id;
+            })
+          : assessments;
+        if (id && selected.length === 0) {
+          throw new Error(`No feature contract named ${id}.`);
+        }
+        if (options.json) {
+          io.stdout(json({ ok: true, features: selected }));
+          return;
+        }
+        io.stdout(
+          options.githubSummary
+            ? formatFeatureSummary(selected)
+            : formatFeatureStatus(selected),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  feature
+    .command("check")
+    .description("Exit nonzero only for objective feature-contract failures")
+    .option("--all", "Check every contract in .promptmarket/features")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function featureCheckAction(options: {
+      all?: boolean;
+      project: string;
+      json?: boolean;
+      offline?: boolean;
+      refresh?: boolean;
+      contentApi?: string;
+      content?: string;
+    }) {
+      try {
+        if (!options.all) {
+          throw new Error("Pass --all to check every feature contract.");
+        }
+        const { assessments, failed } = await loadAssessments(options.project, options);
+        if (failed) {
+          state.exitCode = 1;
+        }
+        if (options.json) {
+          io.stdout(json({ ok: !failed, features: assessments }));
+          return;
+        }
+        io.stdout(formatFeatureStatus(assessments));
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  feature
+    .command("refresh")
+    .description("Compare a feature contract with the latest catalog plan")
+    .argument("<id>", "Feature id")
+    .option("--write", "Update catalog metadata when the guide identity is unchanged")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function featureRefreshAction(
+      id: string,
+      options: {
+        write?: boolean;
+        project: string;
+        json?: boolean;
+        offline?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const loaded = await readFeatureContracts(options.project);
+        const match = loaded.find(function same(item) {
+          return "contract" in item && item.contract.id === id;
+        });
+        if (!match || !("contract" in match)) {
+          throw new Error(`No feature contract named ${id}.`);
+        }
+        const { catalog, version } = await openContent(options, deps);
+        const project = detectProject(options.project);
+        const plan = buildPlan(catalog, { query: match.contract.goal, project });
+        const diff = refreshFeature(match.contract, plan, version);
+        const written = Boolean(options.write && diff.wrote.length > 0);
+        if (written) {
+          await writeFeatureContract(options.project, diff.next);
+        }
+        if (options.json) {
+          io.stdout(json({ ok: true, wrote: written, fields: diff.wrote, held: diff.held }));
+          return;
+        }
+        io.stdout(formatFeatureRefresh(diff, written));
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
       }

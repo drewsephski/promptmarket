@@ -38,6 +38,7 @@ export type CliDeps = {
     args: string[],
     cwd: string,
   ) => Promise<number>;
+  langfuseFetch?: typeof fetch;
 };
 
 type Io = {

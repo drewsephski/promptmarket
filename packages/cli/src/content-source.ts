@@ -13,7 +13,7 @@ import {
   type PromptDocument,
 } from "@promptmarket/content";
 
-export const CLI_VERSION = "0.5.0";
+export { PROMPTMARKET_VERSION as CLI_VERSION } from "@promptmarket/content";
 export const DEFAULT_CONTENT_API = "https://promptmarket.sh/api/content/v1";
 
 export type ContentSourceName = "hosted" | "cache" | "offline" | "directory";

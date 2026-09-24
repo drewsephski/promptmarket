@@ -86,7 +86,24 @@ function defaultAssertions(kind: EvalKind): unknown[] {
   return [];
 }
 
-export function promptfooConfig(target: EvalTarget): string {
+export function langfuseTracing(): Record<string, unknown> {
+  return {
+    enabled: true,
+    provider: {
+      id: "langfuse",
+      endpoint: "https://cloud.langfuse.com",
+      auth: {
+        username: "{{ env.LANGFUSE_PUBLIC_KEY }}",
+        password: "{{ env.LANGFUSE_SECRET_KEY }}",
+      },
+    },
+  };
+}
+
+export function promptfooConfig(
+  target: EvalTarget,
+  options: { tracing?: boolean } = {},
+): string {
   const defaults = defaultAssertions(target.kind);
   const document: Record<string, unknown> = {
     description: `PromptMarket ${target.kind} checks for ${target.guide}. Promptfoo grades these assertions.`,
@@ -96,6 +113,9 @@ export function promptfooConfig(target: EvalTarget): string {
   };
   if (defaults.length > 0) {
     document.defaultTest = { assert: defaults };
+  }
+  if (options.tracing) {
+    document.tracing = langfuseTracing();
   }
   return stringify(document);
 }
@@ -214,17 +234,34 @@ jobs:
           # Promptfoo graders such as llm-rubric use this unless the suite says otherwise.
           OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
           # Add the key provider.ts uses once it calls the app, for example OPENROUTER_API_KEY.
+
+  report:
+    needs: evaluate
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+      - name: PromptMarket feature check
+        run: npx --yes @promptmarket/cli feature check --all --offline
+      - name: PromptMarket summary
+        if: always()
+        run: npx --yes @promptmarket/cli feature status --github-summary --offline >> "$GITHUB_STEP_SUMMARY"
 `;
 }
 
 export async function writeEvalSuite(
   root: string,
   target: EvalTarget,
+  options: { directoryName?: string; tracing?: boolean } = {},
 ): Promise<string[]> {
-  const directory = path.join(root, EVAL_ROOT, target.guide);
+  const directory = path.join(root, EVAL_ROOT, options.directoryName ?? target.guide);
   await mkdir(directory, { recursive: true });
   const files = [
-    ["promptfooconfig.yaml", promptfooConfig(target)],
+    ["promptfooconfig.yaml", promptfooConfig(target, { tracing: options.tracing })],
     ["cases.yaml", promptfooCases(target)],
     ["provider.ts", providerSource(target)],
   ] as const;

@@ -772,7 +772,7 @@ describe("promptmarket cli", function promptmarketCli() {
     );
 
     expect(exitCode).toBe(0);
-    expect(io.out()).toContain("PromptMarket CLI       0.5.0");
+    expect(io.out()).toContain("PromptMarket CLI       0.9.0");
     expect(io.out()).toContain("Content source         offline");
     expect(io.out()).toContain("Offline snapshot       included");
   });
@@ -1186,6 +1186,8 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(workflow).toContain('node-version: "24"');
     expect(workflow).toContain("working-directory: .promptmarket/evals/");
     expect(workflow).toContain("force-run: true");
+    expect(workflow).toContain("@promptmarket/cli feature check --all");
+    expect(workflow).toContain("GITHUB_STEP_SUMMARY");
     const again = captureIo();
     const againCode = await run(
       ["node", "promptmarket", "verify", "ci", "--github", "--project", root],
@@ -1247,5 +1249,65 @@ describe("promptmarket cli", function promptmarketCli() {
     );
     expect(refusedCode).toBe(1);
     expect(refused.err()).toContain("does not edit application code");
+  });
+
+  test("feature init writes a contract and check treats drift as a warning", async function features() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "promptmarket-feature-"));
+    tempDirs.push(root);
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        dependencies: {
+          next: "16.2.0",
+          ai: "7.1.0",
+          "drizzle-orm": "0.45.1",
+        },
+      }),
+    );
+    const io = captureIo();
+    const code = await run(
+      [
+        "node",
+        "promptmarket",
+        "feature",
+        "init",
+        "add RAG over internal documentation",
+        "--project",
+        root,
+        "--write",
+        "--offline",
+        "--json",
+      ],
+      io,
+    );
+    expect(code).toBe(0);
+    const body = JSON.parse(io.out()) as {
+      contract: { id: string; observability?: { provider: string } };
+    };
+    expect(body.contract.id).toBe("rag-internal-docs");
+    const suite = await readFile(
+      path.join(root, ".promptmarket", "evals", "rag-internal-docs", "promptfooconfig.yaml"),
+      "utf8",
+    );
+    expect(suite).toContain("id: langfuse");
+    expect(suite).toContain("LANGFUSE_PUBLIC_KEY");
+
+    const status = captureIo();
+    const statusCode = await run(
+      ["node", "promptmarket", "feature", "status", "--project", root, "--offline"],
+      status,
+    );
+    expect(statusCode).toBe(0);
+    expect(status.out()).toContain("rag-internal-docs");
+    expect(status.out()).toContain("catalog entry available");
+
+    const check = captureIo();
+    const checkCode = await run(
+      ["node", "promptmarket", "feature", "check", "--all", "--project", root, "--offline", "--json"],
+      check,
+    );
+    const checkBody = JSON.parse(check.out()) as { ok: boolean };
+    expect(checkCode).toBe(0);
+    expect(checkBody.ok).toBe(true);
   });
 });

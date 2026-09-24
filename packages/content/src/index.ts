@@ -34,7 +34,24 @@ export {
   formatNotes,
   formatPlan,
 } from "./format.js";
+export {
+  assessFeature,
+  contractFromPlan,
+  featureIdFromGoal,
+  formatFeatureRefresh,
+  formatFeatureStatus,
+  formatFeatureSummary,
+  parseFeatureContract,
+  refreshFeature,
+  serializeFeatureContract,
+  type FeatureAssessment,
+  type FeatureCheck,
+  type FeatureContract,
+  type FeatureEvidence,
+  type FeatureRefresh,
+} from "./feature.js";
 export { contentMeta, contentVersionOf, type ContentMeta } from "./meta.js";
+export { PROMPTMARKET_VERSION } from "./version.js";
 export {
   detectProject,
   otherProjectLabels,

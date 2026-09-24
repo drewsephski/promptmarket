@@ -103,6 +103,8 @@ pnpm dlx @promptmarket/cli setup cursor --check`}
 pnpm dlx @promptmarket/cli doctor
 pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project . --format agent
 pnpm dlx @promptmarket/cli plan "add RAG over our documentation" --project .
+pnpm dlx @promptmarket/cli feature init "add RAG over our documentation" --project . --write
+pnpm dlx @promptmarket/cli feature status
 pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag
@@ -111,7 +113,7 @@ pnpm dlx @promptmarket/cli guide ai-product-brief-builder`}
           label="Copy CLI examples"
         />
         <p className="note">
-          <code>detect</code> fingerprints the current project from{" "}
+          <code>feature init --write</code> stores a version-controlled contract for one AI feature. <code>feature status</code> checks that contract. <code>detect</code> fingerprints the current project from{" "}
           <code>package.json</code> and config filenames. <code>doctor</code>{" "}
           compares those versions with the packages each guide was reproduced
           with. <code>context</code>{" "}

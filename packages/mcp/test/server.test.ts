@@ -265,6 +265,31 @@ describe("promptmarket mcp", function promptmarketMcp() {
     expect(body.observabilityTargets[0]?.provider).toBe("langfuse");
   });
 
+  test("get_workflow reconciles a passed feature contract", async function reconcilesFeature() {
+    const client = await connect(registryWith([recipe]));
+    const result = (await client.callTool({
+      name: "get_workflow",
+      arguments: {
+        query: "Add RAG over internal documentation",
+        feature: {
+          id: "internal-docs-rag",
+          goal: "Add RAG over internal documentation",
+          guide: "rag-knowledge-base",
+          prompt: "rag-grounded-answer",
+          catalog: { guideVerifiedAt: "2000-01-01" },
+        },
+      },
+    })) as ToolResult;
+
+    expect(result.isError).toBeFalsy();
+    const body = result.structuredContent as {
+      reconciliation: { id: string; sameGuide: boolean; guideMoved: boolean };
+    };
+    expect(body.reconciliation.id).toBe("internal-docs-rag");
+    expect(body.reconciliation.sameGuide).toBe(true);
+    expect(body.reconciliation.guideMoved).toBe(true);
+  });
+
   test("search_recipes returns matching summaries", async function searchesRecipes() {
     const client = await connect(registryWith([recipe]));
     const result = (await client.callTool({

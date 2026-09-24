@@ -28,6 +28,25 @@ const projectSchema = z
   })
   .optional();
 
+const featureSchema = z
+  .object({
+    id: z.string(),
+    goal: z.string(),
+    pattern: z.string().optional(),
+    guide: z.string().optional(),
+    prompt: z.string().optional(),
+    catalog: z
+      .object({
+        version: z.string().optional(),
+        guideVerifiedAt: z.string().optional(),
+      })
+      .optional(),
+  })
+  .optional()
+  .describe(
+    "Feature contract read from .promptmarket/features/*.yaml. The server does not read the repository.",
+  );
+
 const inputSchema = z.object({
   query: z
     .string()
@@ -37,6 +56,7 @@ const inputSchema = z.object({
   project: projectSchema.describe(
     "Project fingerprint. Do not send source files or environment variables.",
   ),
+  feature: featureSchema,
 });
 
 const outputSchema = z.object({
@@ -46,6 +66,7 @@ const outputSchema = z.object({
   debugTargets: z.array(z.unknown()),
   evalTargets: z.array(z.unknown()),
   observabilityTargets: z.array(z.unknown()),
+  reconciliation: z.unknown().optional(),
 });
 
 const annotations = {
@@ -63,7 +84,7 @@ export function registerGetWorkflow(
     {
       title: "Get workflow",
       description:
-        "One read of the PromptMarket decision for an AI feature: context, plan, documentation targets, debug targets, eval targets, and observability targets. Does not call Context7, Promptfoo, or Langfuse, and does not edit code.",
+        "One read of the PromptMarket decision for an AI feature: context, plan, documentation targets, debug targets, eval targets, and observability targets. Pass a feature contract when the repository already has .promptmarket/features. Does not read the repository, call Context7, Promptfoo, or Langfuse, or edit code.",
       inputSchema,
       outputSchema,
       annotations,
@@ -84,6 +105,24 @@ export function registerGetWorkflow(
           query: args.query,
           project: resolved,
         });
+        const feature = args.feature;
+        const reconciliation = feature
+          ? {
+              id: feature.id,
+              goal: feature.goal,
+              sameGuide: feature.guide === plan.guide?.slug,
+              samePrompt: feature.prompt === plan.prompt?.name,
+              contractGuide: feature.guide ?? null,
+              planGuide: plan.guide?.slug ?? null,
+              contractPrompt: feature.prompt ?? null,
+              planPrompt: plan.prompt?.name ?? null,
+              contractVerifiedAt: feature.catalog?.guideVerifiedAt ?? null,
+              planVerifiedAt: plan.guide?.verifiedAt ?? null,
+              guideMoved:
+                Boolean(feature.catalog?.guideVerifiedAt) &&
+                feature.catalog?.guideVerifiedAt !== plan.guide?.verifiedAt,
+            }
+          : undefined;
         return toolResult({
           context,
           plan,
@@ -91,6 +130,7 @@ export function registerGetWorkflow(
           debugTargets: plan.debugTargets,
           evalTargets: plan.evalTargets,
           observabilityTargets: plan.observabilityTargets,
+          ...(reconciliation ? { reconciliation } : {}),
         });
       } catch (error) {
         return toolError(error);

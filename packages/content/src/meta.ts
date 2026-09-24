@@ -2,9 +2,11 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { ContentCatalog } from "./load.js";
+import { PROMPTMARKET_VERSION } from "./version.js";
 
 export type ContentMeta = {
   schemaVersion: 1;
+  productVersion: string;
   contentVersion: string;
   updatedAt: string;
   counts: {
@@ -60,6 +62,7 @@ export function contentMeta(
   dates.sort();
   return {
     schemaVersion: 1,
+    productVersion: PROMPTMARKET_VERSION,
     contentVersion: contentVersionOf(contentDir),
     updatedAt: dates[dates.length - 1] ?? "unknown",
     counts: {

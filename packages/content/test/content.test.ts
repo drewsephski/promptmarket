@@ -603,10 +603,12 @@ Hello {{input}}
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       schemaVersion: number;
+      productVersion: string;
       contentVersion: string;
       counts: { lessons: number; prompts: number; guides: number };
     };
     expect(body.schemaVersion).toBe(1);
+    expect(body.productVersion).toBe("0.9.0");
     expect(body.contentVersion).toMatch(/^[a-f0-9]{7}$/);
     expect(body.counts.guides).toBe(3);
     expect(cached.status).toBe(304);

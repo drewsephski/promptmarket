@@ -1,6 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
-import { loadContentCatalog, type ContentCatalog } from "@promptmarket/content";
+import {
+  loadContentCatalog,
+  PROMPTMARKET_VERSION,
+  type ContentCatalog,
+} from "@promptmarket/content";
 import { FileRegistry, type Registry } from "@promptmarket/registry";
 import { registerBuildContext } from "./tools/build-context.js";
 import { registerBuildPlan } from "./tools/build-plan.js";
@@ -23,7 +27,7 @@ export function createPromptMarketServer(
 ): McpServer {
   const server = new McpServer({
     name: "promptmarket",
-    version: "0.4.0",
+    version: PROMPTMARKET_VERSION,
   });
   registerBuildContext(server, registry, catalog);
   registerBuildPlan(server, catalog);
