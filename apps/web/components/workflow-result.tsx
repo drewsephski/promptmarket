@@ -44,6 +44,9 @@ export function WorkflowResult({
     function selectStage(id) {
       setOpen(id);
     },
+    function stageTabId(id) {
+      return `stage-${id}`;
+    },
   );
 
   return (

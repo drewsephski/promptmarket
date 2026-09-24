@@ -31,7 +31,14 @@ export function DocsStart() {
   const choiceIds = choices.map(function idOf(item) {
     return item.id;
   });
-  const handleChoiceKeys = useTabKeyboard(choiceIds, choice, handleChoice);
+  const handleChoiceKeys = useTabKeyboard(
+    choiceIds,
+    choice,
+    handleChoice,
+    function docsTabId(id) {
+      return `docs-${id}`;
+    },
+  );
 
   return (
     <section
