@@ -80,6 +80,8 @@ describe("promptmarket content", function contentSuite() {
     const found = catalog.searchGuides("structured outputs");
 
     expect(guide.difficulty).toBe("beginner");
+    expect(guide.verifiedAt).toBe("2026-09-23");
+    expect(guide.order).toBe(1);
     expect(guide.stack).toContain("Neon");
     expect(guide.relatedTopics).toContain("structured-outputs");
     expect(guide.relatedPrompts).toContain("structured-data-extractor");
@@ -102,6 +104,55 @@ describe("promptmarket content", function contentSuite() {
       "ai-product-brief-builder",
     );
     expect(JSON.stringify(guide.sections)).not.toContain("generateObject(");
+  });
+
+  test("loads the RAG guide after the product brief guide", function loadsRagGuide() {
+    const catalog = loadContentCatalog();
+    const guide = catalog.getGuide("rag-knowledge-base");
+    const found = catalog.searchGuides("RAG");
+
+    expect(
+      catalog.guides.map(function slugOf(item) {
+        return item.slug;
+      }),
+    ).toEqual(["ai-product-brief-builder", "rag-knowledge-base"]);
+    expect(guide.order).toBe(2);
+    expect(guide.difficulty).toBe("intermediate");
+    expect(guide.verifiedAt).toBe("2026-09-23");
+    expect(guide.stack).toEqual(
+      expect.arrayContaining(["OpenRouter", "Neon", "pgvector", "Drizzle"]),
+    );
+    expect(guide.relatedTopics).toEqual(
+      expect.arrayContaining([
+        "rag",
+        "question-answering",
+        "prompting-fundamentals",
+        "evals",
+      ]),
+    );
+    expect(guide.relatedPrompts).toEqual(
+      expect.arrayContaining([
+        "rag-grounded-answer",
+        "answer-with-citations",
+        "search-query-rewriter",
+      ]),
+    );
+    expect(found[0]?.slug).toBe("rag-knowledge-base");
+    expect(catalog.guidesForTopic("rag")[0]?.slug).toBe("rag-knowledge-base");
+    expect(catalog.guidesForPrompt("rag-grounded-answer")[0]?.slug).toBe(
+      "rag-knowledge-base",
+    );
+    const markdown = guide.sections
+      .map(function textOf(section) {
+        return section.markdown;
+      })
+      .join("\n");
+    expect(markdown).toContain("embedMany");
+    expect(markdown).toContain("cosineDistance");
+    expect(markdown).toContain("textEmbeddingModel");
+    expect(markdown).not.toContain("generateObject(");
+    expect(markdown).not.toContain('from "langchain');
+    expect(markdown).not.toContain("from 'langchain");
   });
 
   test("rejects a guide that points at missing lessons or prompts", async function rejectsBrokenGuide() {

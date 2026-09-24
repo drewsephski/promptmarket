@@ -521,7 +521,7 @@ describe("promptmarket cli", function promptmarketCli() {
       guides.guides.map(function slugOf(item) {
         return item.slug;
       }),
-    ).toContain("ai-product-brief-builder");
+    ).toEqual(["ai-product-brief-builder", "rag-knowledge-base"]);
     expect(guideExit).toBe(0);
     expect(guide.guide.slug).toBe("ai-product-brief-builder");
     expect(guide.guide.url).toBe(

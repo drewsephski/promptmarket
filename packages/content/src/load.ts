@@ -152,6 +152,32 @@ function optionalString(
   return requireString(record, key, file);
 }
 
+function optionalVerifiedAt(
+  record: Record<string, unknown>,
+  file: string,
+): string | undefined {
+  const value = optionalString(record, "verifiedAt", file);
+  if (value === undefined) {
+    return undefined;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    throw new ContentError(file, "verifiedAt must be YYYY-MM-DD");
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new ContentError(file, "verifiedAt must be a real date");
+  }
+  return value;
+}
+
 function requireStringList(
   record: Record<string, unknown>,
   key: string,
@@ -542,6 +568,7 @@ function loadGuide(filePath: string): Guide {
       "concepts",
       "estimatedTime",
       "order",
+      "verifiedAt",
       "prerequisites",
       "whatYouBuild",
       "whatYouLearn",
@@ -576,6 +603,7 @@ function loadGuide(filePath: string): Guide {
     concepts: requireSlugList(data, "concepts", file, false),
     estimatedTime: optionalString(data, "estimatedTime", file),
     order,
+    verifiedAt: optionalVerifiedAt(data, file),
     prerequisites: requireStringList(data, "prerequisites", file),
     whatYouBuild: requireStringList(data, "whatYouBuild", file),
     whatYouLearn: requireStringList(data, "whatYouLearn", file),

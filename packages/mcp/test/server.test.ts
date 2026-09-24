@@ -458,4 +458,41 @@ describe("promptmarket mcp", function promptmarketMcp() {
     expect(JSON.stringify(loaded.structuredContent)).toContain("Output.object");
     expect(missing.isError).toBe(true);
   });
+
+  test("search_guides and get_guide return the RAG tutorial", async function loadsRagGuide() {
+    const client = await connect(registryWith([]));
+    const searched = (await client.callTool({
+      name: "search_guides",
+      arguments: { query: "RAG" },
+    })) as ToolResult;
+    const loaded = (await client.callTool({
+      name: "get_guide",
+      arguments: { slug: "rag-knowledge-base" },
+    })) as ToolResult;
+
+    expect(searched.isError).toBeFalsy();
+    const found = searched.structuredContent as {
+      guides: Array<{ slug: string; url: string }>;
+    };
+    expect(found.guides[0]?.slug).toBe("rag-knowledge-base");
+    expect(found.guides[0]?.url).toBe(
+      "https://promptmarket.sh/guides/rag-knowledge-base",
+    );
+    const guide = loaded.structuredContent as {
+      title: string;
+      verifiedAt?: string;
+      sections: Array<{ markdown: string }>;
+    };
+    const markdown = guide.sections
+      .map(function textOf(section) {
+        return section.markdown;
+      })
+      .join("\n");
+    expect(guide.title).toContain("RAG");
+    expect(guide.verifiedAt).toBe("2026-09-23");
+    expect(guide.sections.length).toBeGreaterThan(10);
+    expect(markdown).toContain("cosineDistance");
+    expect(markdown).toContain("embedMany");
+    expect(JSON.stringify(loaded.structuredContent)).not.toContain("<!DOCTYPE");
+  });
 });

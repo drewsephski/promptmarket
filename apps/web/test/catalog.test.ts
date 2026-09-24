@@ -2,6 +2,7 @@ import path from "node:path";
 import { FileRegistry } from "@promptmarket/registry";
 import { describe, expect, test } from "vitest";
 import { generateStaticParams as guideParams } from "../app/guides/[slug]/page";
+import sitemap from "../app/sitemap";
 import { generateStaticParams as learnParams } from "../app/learn/[slug]/page";
 import { generateStaticParams as promptParams } from "../app/prompts/[slug]/page";
 import { filterGallery, promptGalleryItem } from "../lib/gallery";
@@ -117,7 +118,17 @@ describe("catalog presentation", function catalogPresentation() {
       guideParams().map(function slugOf(item) {
         return item.slug;
       }),
-    ).toContain("ai-product-brief-builder");
+    ).toEqual(
+      expect.arrayContaining([
+        "ai-product-brief-builder",
+        "rag-knowledge-base",
+      ]),
+    );
+    expect(
+      sitemap().map(function urlOf(entry) {
+        return entry.url;
+      }),
+    ).toContain("https://promptmarket.sh/guides/rag-knowledge-base");
     const visible = filterGallery(
       [
         promptGalleryItem({

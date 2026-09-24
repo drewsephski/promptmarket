@@ -174,6 +174,7 @@ export type Guide = {
   concepts: string[];
   estimatedTime?: string;
   order?: number;
+  verifiedAt?: string;
   prerequisites: string[];
   whatYouBuild: string[];
   whatYouLearn: string[];

@@ -11,10 +11,6 @@ export const metadata: Metadata = pageMetadata(
 
 const upcoming = [
   {
-    title: "RAG Knowledge Base",
-    detail: "Next.js, OpenRouter, Neon, pgvector",
-  },
-  {
     title: "AI Project Manager with Convex",
     detail: "Next.js, OpenRouter, Convex",
   },

@@ -191,11 +191,9 @@ export default function Home() {
         </div>
         <p className="lede">
           A guide includes the keys, the database, and the code, and it ends
-          with something running on localhost.{" "}
-          <a href="/guides/ai-product-brief-builder">
-            Start with the product brief generator
-          </a>
-          .
+          with something running on localhost. Start with the{" "}
+          <a href="/guides/ai-product-brief-builder">product brief generator</a>{" "}
+          or the <a href="/guides/rag-knowledge-base">RAG knowledge base</a>.
         </p>
       </section>
 

@@ -30,6 +30,9 @@ export function GuideHeader({ guide }: GuideHeaderProps) {
         {guide.estimatedTime ? (
           <span className="tag">{guide.estimatedTime}</span>
         ) : null}
+        {guide.verifiedAt ? (
+          <span className="tag">Verified {guide.verifiedAt}</span>
+        ) : null}
         {guide.stack.map(function renderStack(item) {
           return (
             <span className="tag" key={item}>

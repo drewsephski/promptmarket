@@ -18,6 +18,7 @@ concepts:
   - persistence
 estimatedTime: 60 minutes
 order: 1
+verifiedAt: 2026-09-23
 prerequisites:
   - Node.js 22 or newer
   - pnpm 10 or newer
@@ -82,7 +83,7 @@ The last idea is persistence. Generate, show, and save happen in one request. Re
 
 Install these before you create the app:
 
-- [Node.js 22](https://nodejs.org) or newer. The current Vercel AI SDK requires Node.js 22.
+- [Node.js 22](https://nodejs.org) or newer. The OpenRouter provider used here (`@openrouter/ai-sdk-provider` v3) requires Node.js 22, and AI SDK 7, which that provider targets, declares the same engine. This is a requirement of that integration, not of every AI library.
 - [pnpm 10](https://pnpm.io/installation) or newer.
 - A code editor. Any editor that can open a folder is enough.
 - An [OpenRouter](https://openrouter.ai) account. You will create an API key and need a small credit balance.

@@ -17,6 +17,7 @@ const outputSchema = z.object({
   stack: z.array(z.string()),
   concepts: z.array(z.string()),
   estimatedTime: z.string().optional(),
+  verifiedAt: z.string().optional(),
   prerequisites: z.array(z.string()),
   whatYouBuild: z.array(z.string()),
   whatYouLearn: z.array(z.string()),
@@ -66,6 +67,7 @@ export function registerGetGuide(
           ...(guide.estimatedTime
             ? { estimatedTime: guide.estimatedTime }
             : {}),
+          ...(guide.verifiedAt ? { verifiedAt: guide.verifiedAt } : {}),
           prerequisites: guide.prerequisites,
           whatYouBuild: guide.whatYouBuild,
           whatYouLearn: guide.whatYouLearn,
