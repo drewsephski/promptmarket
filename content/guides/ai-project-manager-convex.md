@@ -60,6 +60,17 @@ verification:
   - The assistant creates a task that appears in the list
   - A tool call updates the same task the user named
   - The model cannot write to Convex without a tool
+eval:
+  kind: tool-calling
+  cases:
+    - name: create-task
+      input: Add a high-priority landing page task
+      expectation: createTask is called
+    - name: lookup-then-update
+      input: Mark the documentation task complete
+      expectation:
+        - listTasks
+        - setTaskCompleted
 evidence:
   docs:
     - package: ai
@@ -163,7 +174,7 @@ Each package has one job:
 
 Do not install an agent framework, LangChain, an ORM, or a second database. Convex is the backend. The AI SDK is the tool loop.
 
-> **Note:** This guide was checked against `ai@7.0.113`, `@ai-sdk/react@4.0.116`, `@openrouter/ai-sdk-provider@3.1.0`, `zod@4.6.5`, and `convex@1.46.0`. On current AI SDK 7, a tool takes `inputSchema`, a loop stops with `stopWhen: isStepCount(...)`, and the model instructions field is `instructions`. Older posts use `parameters`, `maxSteps`, `stepCountIs`, and `system`. Do not start this app on those names.
+> **Note:** This guide was checked against the published `ai@7.0.113` types, plus `@ai-sdk/react@4.0.116`, `@openrouter/ai-sdk-provider@3.1.0`, `zod@4.6.5`, and `convex@1.46.0`. That `ai` release declares `isStepCount` and re-exports the same function as `stepCountIs`. The samples use `isStepCount`. A tool takes `inputSchema`, and the model instructions field is `instructions`. Older posts use `parameters`, `maxSteps`, and `system`. Do not start this app on those names.
 
 ## Set up Convex
 

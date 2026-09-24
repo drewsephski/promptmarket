@@ -92,6 +92,28 @@ const outputSchema = z.object({
       url: z.string(),
     }),
   ),
+  evalTargets: z.array(
+    z.object({
+      system: z.literal("promptfoo"),
+      kind: z.enum(["rag", "tool-calling", "structured-output"]),
+      guide: z.string(),
+      cases: z.array(
+        z.object({
+          name: z.string(),
+          input: z.string(),
+          expectation: z.union([z.string(), z.array(z.string())]),
+        }),
+      ),
+    }),
+  ),
+  debugTargets: z.array(
+    z.object({
+      tool: z.literal("ai-sdk-devtools"),
+      reason: z.string(),
+      command: z.string(),
+      warning: z.string(),
+    }),
+  ),
   documentationTargets: z.array(
     z.object({
       package: z.string(),
@@ -137,7 +159,7 @@ export function registerBuildPlan(
     {
       title: "Build plan",
       description:
-        "After build_context, when the task is to implement an AI feature. Returns an architecture, implementation steps, a starting prompt, verification checks, and documentation targets for live library docs. Does not call a model and does not edit code.",
+        "After build_context, when the task is to implement an AI feature. Returns an architecture, implementation steps, a starting prompt, verification checks, documentation targets, eval targets, and debug targets. Does not call a model and does not edit code.",
       inputSchema,
       outputSchema,
       annotations,

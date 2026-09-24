@@ -84,6 +84,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@upstash/context7-sdk':
+        specifier: 0.5.0
+        version: 0.5.0
       yaml:
         specifier: ^2.8.1
         version: 2.9.1
@@ -1705,6 +1708,9 @@ packages:
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
+
+  '@upstash/context7-sdk@0.5.0':
+    resolution: {integrity: sha512-ywZO7ladg9YQOaHtXfK45Q0jUg12MpQtH+wahz1TZQZsnRUnYNrMSsl3bUhekpt7bexQfv5kafFUM6KBWMPkkQ==}
 
   '@vitest/expect@3.2.7':
     resolution: {integrity: sha512-E8eBXaKibuvH2pSZErOjdVb5vF4PbKYcrnluBTYxEk1l/VhhwZg1kZQsdtjq+CsF5CFydf2Rdkz7jDHKSisi3w==}
@@ -3736,6 +3742,8 @@ snapshots:
 
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
+
+  '@upstash/context7-sdk@0.5.0': {}
 
   '@vitest/expect@3.2.7':
     dependencies:

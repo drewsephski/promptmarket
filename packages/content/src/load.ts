@@ -13,8 +13,12 @@ import {
   PROMPT_CATEGORIES,
   type DiagramId,
   type Difficulty,
+  EVAL_KINDS,
+  type EvalKind,
   type Guide,
   type GuideDocTarget,
+  type GuideEval,
+  type GuideEvalCase,
   type GuideEvidence,
   type GuideSection,
   type GuideSourceReference,
@@ -691,6 +695,88 @@ function evidenceReferences(
   });
 }
 
+function optionalEval(
+  record: Record<string, unknown>,
+  file: string,
+): GuideEval | undefined {
+  if (!("eval" in record) || record.eval == null) {
+    return undefined;
+  }
+  const value = record.eval;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new ContentError(file, "eval must be a mapping");
+  }
+  const evalRecord = value as Record<string, unknown>;
+  rejectUnknownKeys(evalRecord, ["kind", "cases"], file);
+  const kind = oneOf(
+    requireString(evalRecord, "kind", file),
+    EVAL_KINDS,
+    file,
+    "eval.kind",
+  );
+  return { kind, cases: evalCases(evalRecord.cases, file, kind) };
+}
+
+function evalCases(
+  value: unknown,
+  file: string,
+  kind: EvalKind,
+): GuideEvalCase[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ContentError(file, "eval.cases must be a non-empty list");
+  }
+  const seen = new Set<string>();
+  return value.map(function item(entry, index) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new ContentError(file, `eval.cases[${index}] must be a mapping`);
+    }
+    const record = entry as Record<string, unknown>;
+    rejectUnknownKeys(record, ["name", "input", "expectation"], file);
+    const name = requireString(record, "name", file);
+    if (!SLUG.test(name)) {
+      throw new ContentError(file, `eval.cases[${index}].name must be a slug`);
+    }
+    if (seen.has(name)) {
+      throw new ContentError(file, `eval.cases repeats ${name}`);
+    }
+    seen.add(name);
+    const input = record.input;
+    if (typeof input !== "string") {
+      throw new ContentError(file, `eval.cases[${index}].input must be a string`);
+    }
+    return {
+      name,
+      input,
+      expectation: expectationOf(record.expectation, file, index, kind),
+    };
+  });
+}
+
+function expectationOf(
+  value: unknown,
+  file: string,
+  index: number,
+  kind: EvalKind,
+): string | string[] {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+  if (
+    kind === "tool-calling" &&
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(function tool(item) {
+      return typeof item === "string" && /^[A-Za-z_][\w]*$/.test(item);
+    })
+  ) {
+    return value;
+  }
+  throw new ContentError(
+    file,
+    `eval.cases[${index}].expectation must be text${kind === "tool-calling" ? " or a list of tool names" : ""}`,
+  );
+}
+
 function loadGuide(filePath: string): Guide {
   const file = path.relative(process.cwd(), filePath);
   const slug = path.basename(filePath, ".md");
@@ -718,6 +804,7 @@ function loadGuide(filePath: string): Guide {
       "relatedTopics",
       "relatedPrompts",
       "verification",
+      "eval",
       "evidence",
     ],
     file,
@@ -756,6 +843,7 @@ function loadGuide(filePath: string): Guide {
     relatedTopics: requireSlugList(data, "relatedTopics", file, false),
     relatedPrompts: requireSlugList(data, "relatedPrompts", file, false),
     verification: optionalStringList(data, "verification", file),
+    eval: optionalEval(data, file),
     evidence: optionalEvidence(data, file),
     sections: guideSections(body, file),
     href: `/guides/${slug}`,

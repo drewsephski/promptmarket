@@ -68,6 +68,15 @@ verification:
   - API credentials remain server-only
   - Stored and query embeddings use the same model
   - Retrieved chunks are visible while debugging
+eval:
+  kind: rag
+  cases:
+    - name: known-answer
+      input: How many remote days are allowed?
+      expectation: answers from supplied context
+    - name: unsupported-answer
+      input: Who is the CEO?
+      expectation: refuses when context is silent
 evidence:
   docs:
     - package: ai

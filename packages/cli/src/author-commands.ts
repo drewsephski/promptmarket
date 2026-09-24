@@ -33,6 +33,11 @@ export type CliDeps = {
   cursorAgent?: boolean;
   context7Handoff?: (root: string) => Promise<number>;
   documentationProvider?: DocumentationProvider;
+  command?: (
+    file: string,
+    args: string[],
+    cwd: string,
+  ) => Promise<number>;
 };
 
 type Io = {

@@ -26,6 +26,8 @@ import {
   renderSetupReport,
   type SetupMode,
 } from "./cursor-setup.js";
+import { access, readdir } from "node:fs/promises";
+import path from "node:path";
 import { groundPlan } from "./documentation.js";
 import {
   createContext7Provider,
@@ -43,6 +45,13 @@ import {
 } from "@promptmarket/registry";
 import { registerAuthorCommands, type CliDeps } from "./author-commands.js";
 import { createRegistry } from "./registry-option.js";
+import {
+  EVAL_ROOT,
+  PROMPTFOO_EVAL,
+  PROMPTFOO_VIEW,
+  runInherited,
+  writeEvalSuite,
+} from "./verify.js";
 
 export type { CliDeps } from "./author-commands.js";
 export { createRegistry } from "./registry-option.js";
@@ -505,7 +514,7 @@ export function createProgram(
   program
     .command("research")
     .description(
-      "Optional. Reconcile a PromptMarket plan with live Context7 docs. Requires API keys.",
+      "Optional. Reconcile a PromptMarket plan with live Context7 docs. Requires CONTEXT7_API_KEY.",
     )
     .argument("<query>", "Feature to research, in plain language")
     .option("--json", "Print deterministic JSON to stdout")
@@ -543,7 +552,7 @@ export function createProgram(
           return;
         }
         io.stdout(formatPlan(verified.plan));
-        io.stdout("Verified plan\nEvidence from Context7. PromptMarket did not replace the guide.\n");
+        io.stdout("Verified plan\nEvidence from the Context7 SDK. PromptMarket did not replace the guide.\n");
         for (const item of verified.evidence) {
           io.stdout(`${item.library} (${item.package})\n${item.question}\n`);
           if (item.documentation) {
@@ -555,6 +564,124 @@ export function createProgram(
         writeFailure(io, state, Boolean(options.json), error);
       }
     });
+
+  const verify = program
+    .command("verify")
+    .description("Scaffold and run Promptfoo checks chosen by the plan");
+
+  verify
+    .command("init")
+    .description("Write a thin Promptfoo suite from the plan's eval targets")
+    .argument("<query>", "Feature to verify, in plain language")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--project <dir>", "Project directory", ".")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function verifyInitAction(
+      query: string,
+      options: {
+        json?: boolean;
+        project: string;
+        offline?: boolean;
+        refresh?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const { catalog } = await openContent(options, deps);
+        const project = detectProject(options.project);
+        const plan = buildPlan(catalog, { query, project });
+        const target = plan.evalTargets[0];
+        if (!target) {
+          throw new Error(
+            "This plan has no eval target. PromptMarket only scaffolds checks a guide already names.",
+          );
+        }
+        const directory = path.join(options.project, EVAL_ROOT, target.guide);
+        try {
+          await access(directory);
+          throw new Error(
+            `${path.join(EVAL_ROOT, target.guide)} already exists. Promptfoo owns that suite.`,
+          );
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("already exists")) {
+            throw error;
+          }
+        }
+        const files = await writeEvalSuite(options.project, target);
+        if (options.json) {
+          io.stdout(
+            json({
+              ok: true,
+              guide: target.guide,
+              system: target.system,
+              directory: path.join(EVAL_ROOT, target.guide),
+              files,
+            }),
+          );
+          return;
+        }
+        io.stdout(
+          [
+            `Eval ${target.system} · ${target.kind}`,
+            path.join(EVAL_ROOT, target.guide),
+            ...files.map(function line(file) {
+              return `  ${file}`;
+            }),
+            "",
+            "Next: promptmarket verify run",
+            "",
+          ].join("\n"),
+        );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  verify
+    .command("run")
+    .description("Run Promptfoo eval for suites under .promptmarket/evals")
+    .argument("[dir]", "Project directory", ".")
+    .action(async function verifyRunAction(dir: string) {
+      await delegatePromptfoo(dir, "eval");
+    });
+
+  verify
+    .command("view")
+    .description("Open the Promptfoo results viewer")
+    .argument("[dir]", "Project directory", ".")
+    .action(async function verifyViewAction(dir: string) {
+      await delegatePromptfoo(dir, "view");
+    });
+
+  async function delegatePromptfoo(dir: string, mode: "eval" | "view") {
+    try {
+      const runner = deps.command ?? runInherited;
+      if (mode === "view") {
+        state.exitCode = await runner("npx", [...PROMPTFOO_VIEW], dir);
+        return;
+      }
+      const root = path.join(dir, EVAL_ROOT);
+      const guides = await readdir(root).catch(function missing() {
+        return [] as string[];
+      });
+      if (guides.length === 0) {
+        throw new Error("No Promptfoo suite found. Run promptmarket verify init first.");
+      }
+      for (const guide of guides) {
+        const code = await runner("npx", [...PROMPTFOO_EVAL], path.join(root, guide));
+        if (code !== 0) {
+          state.exitCode = code;
+          return;
+        }
+      }
+    } catch (error) {
+      writeFailure(io, state, false, error);
+    }
+  }
 
   program
     .command("doctor")

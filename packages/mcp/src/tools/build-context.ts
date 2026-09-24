@@ -184,6 +184,16 @@ const outputSchema = z.object({
       }),
     )
     .optional(),
+  debugTargets: z
+    .array(
+      z.object({
+        tool: z.literal("ai-sdk-devtools"),
+        reason: z.string(),
+        command: z.string(),
+        warning: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 const annotations = {

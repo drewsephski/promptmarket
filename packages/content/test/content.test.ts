@@ -418,6 +418,15 @@ Hello {{input}}
       detectedVersion: "7.0.0",
       testedLine: "7",
     });
+    expect(plan.evalTargets[0]).toMatchObject({
+      system: "promptfoo",
+      kind: "rag",
+      guide: "rag-knowledge-base",
+    });
+    expect(plan.evalTargets[0]?.cases.map(function nameOf(item) {
+      return item.name;
+    })).toEqual(["known-answer", "unsupported-answer"]);
+    expect(plan.debugTargets[0]?.tool).toBe("ai-sdk-devtools");
     expect(plan.evidenceTargets.docs).toBe(plan.documentationTargets);
     expect(plan.evidenceTargets.references).toEqual([
       {
@@ -442,6 +451,8 @@ Hello {{input}}
     });
 
     expect(context.mode).toBe("debug");
+    expect(context.debugTargets?.[0]?.tool).toBe("ai-sdk-devtools");
+    expect(context.debugTargets?.[0]?.warning).toContain("plain text");
     expect(context.guides[0]?.slug).toBe("rag-knowledge-base");
     expect(context.topics[0]?.slug).toBe("rag");
     expect(

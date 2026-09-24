@@ -1041,7 +1041,8 @@ describe("promptmarket cli", function promptmarketCli() {
       "utf8",
     );
     expect(rule).toContain("documentationTargets");
-    expect(rule).toContain("resolve-library-id");
+    expect(rule).toContain("evalTargets");
+    expect(rule).toContain("debugTargets");
 
     await writeFile(
       path.join(root, ".cursor", "mcp.json"),
@@ -1082,14 +1083,16 @@ describe("promptmarket cli", function promptmarketCli() {
   });
 
   test("research stays optional until a documentation provider runs", async function researches() {
+    const previous = process.env.CONTEXT7_API_KEY;
+    delete process.env.CONTEXT7_API_KEY;
     const missing = captureIo();
     const missingCode = await run(
       ["node", "promptmarket", "research", "add RAG over internal documentation", "--json", "--offline"],
       missing,
     );
     expect(missingCode).toBe(1);
-    expect(missing.out()).toContain("OPENROUTER_API_KEY");
     expect(missing.out()).toContain("CONTEXT7_API_KEY");
+    expect(missing.out()).not.toContain("OPENROUTER_API_KEY");
 
     const io = captureIo();
     const code = await run(
@@ -1102,6 +1105,9 @@ describe("promptmarket cli", function promptmarketCli() {
           },
           async queryDocumentation(input) {
             return `docs for ${input.libraryId}`;
+          },
+          async search() {
+            return { libraryId: "/vercel/ai", documentation: "docs for /vercel/ai" };
           },
         },
       },
@@ -1118,5 +1124,44 @@ describe("promptmarket cli", function promptmarketCli() {
     })).toContain("ai");
     expect(body.evidence[0]?.libraryId).toBe("/vercel/ai");
     expect(body.evidence[0]?.documentation).toBe("docs for /vercel/ai");
+    if (previous === undefined) {
+      delete process.env.CONTEXT7_API_KEY;
+    } else {
+      process.env.CONTEXT7_API_KEY = previous;
+    }
+  });
+
+  test("verify init writes a Promptfoo suite and run delegates to promptfoo", async function verifies() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "promptmarket-verify-"));
+    const io = captureIo();
+    const code = await run(
+      ["node", "promptmarket", "verify", "init", "add RAG over internal documentation", "--json", "--offline", "--project", root],
+      io,
+    );
+    expect(code).toBe(0);
+    const body = JSON.parse(io.out()) as { guide: string; files: string[] };
+    expect(body.guide).toBe("rag-knowledge-base");
+    const config = await readFile(
+      path.join(root, ".promptmarket", "evals", "rag-knowledge-base", "promptfooconfig.yaml"),
+      "utf8",
+    );
+    expect(config).toContain("context-faithfulness");
+    expect(config).toContain("file://provider.ts");
+    const calls: string[][] = [];
+    const runIo = captureIo();
+    const runCode = await run(
+      ["node", "promptmarket", "verify", "run", root],
+      runIo,
+      {
+        command: async function command(_file, args, cwd) {
+          calls.push([cwd, ...args]);
+          return 0;
+        },
+      },
+    );
+    expect(runCode).toBe(0);
+    expect(calls[0]?.join(" ")).toContain("promptfoo@latest eval");
+    expect(calls[0]?.[0]).toContain("rag-knowledge-base");
+    await rm(root, { recursive: true, force: true });
   });
 });

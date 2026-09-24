@@ -167,6 +167,16 @@ export function formatContextText(context: BuiltContext): string {
       lines.push(`${skill.name}\t${skill.version}`, skill.description, "");
     }
   }
+  if (context.debugTargets && context.debugTargets.length > 0) {
+    lines.push("DEBUG TOOL");
+    for (const target of context.debugTargets) {
+      lines.push(target.tool);
+      lines.push(target.reason);
+      lines.push(`Next: ${target.command}`);
+      lines.push(target.warning);
+    }
+    lines.push("");
+  }
   if (context.suggestedNextSteps.length > 0) {
     lines.push("NEXT");
     for (const step of context.suggestedNextSteps) {
@@ -208,6 +218,31 @@ export function formatPlan(plan: ImplementationPlan): string {
     lines.push("Verification");
     for (const item of plan.verification) {
       lines.push(`□ ${item}`);
+    }
+    lines.push("");
+  }
+  if (plan.evalTargets.length > 0) {
+    lines.push("Eval");
+    for (const target of plan.evalTargets) {
+      lines.push(`${target.system} · ${target.kind} · ${target.guide}`);
+      for (const item of target.cases) {
+        const expectation = Array.isArray(item.expectation)
+          ? item.expectation.join(" → ")
+          : item.expectation;
+        lines.push(`- ${item.name}: ${item.input}`);
+        lines.push(`  ${expectation}`);
+      }
+    }
+    lines.push('Next: promptmarket verify init "<goal>" --project .');
+    lines.push("");
+  }
+  if (plan.debugTargets.length > 0) {
+    lines.push("Debug");
+    for (const target of plan.debugTargets) {
+      lines.push(target.tool);
+      lines.push(target.reason);
+      lines.push(target.command);
+      lines.push(target.warning);
     }
     lines.push("");
   }
@@ -316,6 +351,12 @@ export function formatAgentContext(context: BuiltContext): string {
       return Boolean(url);
     },
   );
+  if (context.debugTargets && context.debugTargets.length > 0) {
+    lines.push("## Debug tool");
+    for (const target of context.debugTargets) {
+      lines.push(target.tool, "", target.reason, "", `Next: \`${target.command}\``, "", target.warning, "");
+    }
+  }
   if (references.length > 0) {
     lines.push("## References");
     for (const url of references) {

@@ -23,6 +23,21 @@ export type VerifiedPlan = {
   evidence: DocumentationEvidence[];
 };
 
+export type DocumentationSearch = {
+  libraryId?: string;
+  documentation: string;
+};
+
+const CONTEXT7_VERSION = /^v?[0-9]+([._][0-9]+){0,2}([-+][a-zA-Z0-9.-]+)?$/;
+
+export function context7Version(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return CONTEXT7_VERSION.test(trimmed) ? trimmed : undefined;
+}
+
 export interface DocumentationProvider {
   resolveLibrary(input: {
     library: string;
@@ -33,6 +48,11 @@ export interface DocumentationProvider {
     question: string;
     version?: string;
   }): Promise<string>;
+  search(input: {
+    question: string;
+    libraries: string[];
+    version?: string;
+  }): Promise<DocumentationSearch>;
 }
 
 export function documentationQuestion(target: DocumentationTarget): string {
@@ -48,32 +68,19 @@ export async function groundPlan(
   const evidence: DocumentationEvidence[] = [];
   for (const target of plan.documentationTargets) {
     const question = documentationQuestion(target);
-    const match = await provider.resolveLibrary({
-      library: target.library,
+    const version = context7Version(target.detectedVersion ?? target.testedLine);
+    const result = await provider.search({
       question,
-    });
-    if (!match) {
-      evidence.push({
-        library: target.library,
-        package: target.package,
-        source: "context7",
-        question,
-        documentation: "",
-      });
-      continue;
-    }
-    const documentation = await provider.queryDocumentation({
-      libraryId: match.libraryId,
-      question,
-      version: target.detectedVersion ?? target.testedLine,
+      libraries: [target.library],
+      ...(version ? { version } : {}),
     });
     evidence.push({
       library: target.library,
       package: target.package,
       source: "context7",
-      libraryId: match.libraryId,
+      ...(result.libraryId ? { libraryId: result.libraryId } : {}),
       question,
-      documentation,
+      documentation: result.documentation,
     });
   }
   return { kind: "verified_plan", plan, evidence };

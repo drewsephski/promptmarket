@@ -60,6 +60,15 @@ verification:
   - A product idea returns a brief that matches the schema
   - Invalid model output is rejected instead of saved
   - The OpenRouter key stays server-side
+eval:
+  kind: structured-output
+  cases:
+    - name: valid-brief
+      input: A shared reading list for a book club
+      expectation: returns a brief with summary, target users, features, risks, and acceptance criteria
+    - name: rejects-invalid
+      input: ""
+      expectation: refuses an empty idea instead of inventing a brief
 evidence:
   docs:
     - package: ai

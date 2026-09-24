@@ -177,6 +177,35 @@ export type GuideSourceReference = {
   reason: string;
 };
 
+export const EVAL_KINDS = ["rag", "tool-calling", "structured-output"] as const;
+
+export type EvalKind = (typeof EVAL_KINDS)[number];
+
+export type GuideEvalCase = {
+  name: string;
+  input: string;
+  expectation: string | string[];
+};
+
+export type GuideEval = {
+  kind: EvalKind;
+  cases: GuideEvalCase[];
+};
+
+export type EvalTarget = {
+  system: "promptfoo";
+  kind: EvalKind;
+  guide: string;
+  cases: GuideEvalCase[];
+};
+
+export type DebugTarget = {
+  tool: "ai-sdk-devtools";
+  reason: string;
+  command: string;
+  warning: string;
+};
+
 export type GuideEvidence = {
   docs: GuideDocTarget[];
   references: GuideSourceReference[];
@@ -200,6 +229,7 @@ export type Guide = {
   relatedTopics: string[];
   relatedPrompts: string[];
   verification: string[];
+  eval?: GuideEval;
   evidence: GuideEvidence;
   sections: GuideSection[];
   href: string;

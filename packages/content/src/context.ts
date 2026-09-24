@@ -1,4 +1,6 @@
 import { compatibilityFor, type CompatibilityItem } from "./compatibility.js";
+import { debugTargetsFor } from "./plan.js";
+import type { DebugTarget } from "./types.js";
 import { ContentError } from "./errors.js";
 import { rankContent, type ContentCatalog } from "./load.js";
 import { projectStackLabels, type ProjectContext } from "./project.js";
@@ -153,6 +155,7 @@ export type BuiltContext = {
     guides: RelatedItem[];
   };
   compatibility?: CompatibilityItem[];
+  debugTargets?: DebugTarget[];
 };
 
 function clampMaxItems(value: number | undefined): number {
@@ -648,6 +651,21 @@ function nextSteps(
   return steps;
 }
 
+function debugField(
+  mode: ContextMode,
+  guide: Parameters<typeof debugTargetsFor>[0],
+  project: Parameters<typeof debugTargetsFor>[1],
+): { debugTargets: DebugTarget[] } | Record<string, never> {
+  if (mode !== "debug") {
+    return {};
+  }
+  const debugTargets = debugTargetsFor(guide, project);
+  if (debugTargets.length === 0) {
+    return {};
+  }
+  return { debugTargets };
+}
+
 export function buildContext(
   catalog: ContentCatalog,
   options: BuildContextOptions,
@@ -814,6 +832,7 @@ export function buildContext(
       }),
     },
     ...(compatibility && compatibility.length > 0 ? { compatibility } : {}),
+    ...debugField(mode, primaryGuide, options.project),
   };
 }
 

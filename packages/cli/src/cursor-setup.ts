@@ -26,17 +26,13 @@ When implementing or substantially modifying an AI feature:
 2. Call \`build_context\` with the user's goal, framework, and relevant packages and versions.
 3. Call \`build_plan\`.
 4. Read \`documentationTargets\` from the plan.
-5. For any external library whose API matters:
-   - use Context7 \`resolve-library-id\`
-   - select the best official or high-quality match
-   - query Context7 docs for the exact implementation concept
-   - include the detected package version when the target has one
-6. Treat Context7 as the source of truth for current library syntax.
-   Treat PromptMarket as the source of truth for architecture, the AI engineering pattern, implementation sequence, prompting strategy, and verification criteria.
+5. For each target, query Context7 for that library, the target reason, and the detected version. Treat Context7 as the source of truth for current library syntax.
+6. Treat PromptMarket as the source of truth for architecture, the AI engineering pattern, implementation sequence, prompting strategy, and which checks matter.
 7. If current documentation conflicts with a PromptMarket guide, follow the current documentation, adapt the guide, and mention the discrepancy.
-8. Implement using the existing repository's conventions.
-9. Run PromptMarket's verification checks before considering the work complete.
-10. Never assume external services or environment configuration exist merely because the guide requires them.
+8. Implement using the existing repository's conventions. Do not paste instrumentation from memory.
+9. When behavior is wrong, read \`debugTargets\`. For \`ai-sdk-devtools\`, follow current AI SDK docs to register DevTools for the installed version, then run \`npx @ai-sdk/devtools@latest\`. DevTools stores prompts and tool data locally in plain text. Use it only in local development.
+10. Before considering the work complete, scaffold and run the Promptfoo checks in \`evalTargets\` with \`promptmarket verify init\`, then \`promptmarket verify run\`. Promptfoo owns the evaluator.
+11. Never assume external services or environment configuration exist merely because the guide requires them.
 
 A PromptMarket plan is curated knowledge from when the guide was written. It becomes a verified plan only after those documentation targets are reconciled with live library docs. Do not describe the plan as live-verified before that step.
 `;

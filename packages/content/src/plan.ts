@@ -6,7 +6,14 @@ import {
 } from "./context.js";
 import type { ContentCatalog } from "./load.js";
 import type { ProjectContext } from "./project.js";
-import type { Guide, GuideSection, GuideSourceReference } from "./types.js";
+import type {
+  DebugTarget,
+  EvalTarget,
+  Guide,
+  GuideEval,
+  GuideSection,
+  GuideSourceReference,
+} from "./types.js";
 
 const FRAMING = new Set([
   "what-were-building",
@@ -68,6 +75,11 @@ export type EvidenceTargets = {
   references: CuratedReference[];
 };
 
+export const DEVTOOLS_COMMAND = "npx @ai-sdk/devtools@latest";
+
+export const DEVTOOLS_WARNING =
+  "DevTools stores prompts, tool calls, and responses locally in plain text. Use it for local development only, never in production.";
+
 export type ImplementationPlan = {
   goal: string;
   project?: ProjectContext;
@@ -89,6 +101,8 @@ export type ImplementationPlan = {
   references: PlanReference[];
   documentationTargets: DocumentationTarget[];
   evidenceTargets: EvidenceTargets;
+  evalTargets: EvalTarget[];
+  debugTargets: DebugTarget[];
 };
 
 export type BuildPlanOptions = {
@@ -152,6 +166,51 @@ function documentationTargetsFor(
       reason: doc.reason,
     };
   });
+}
+
+export function usesAiSdk(
+  guide: Guide | undefined,
+  project: ProjectContext | undefined,
+): boolean {
+  if (project?.packages.includes("ai") || project?.ai?.sdk) {
+    return true;
+  }
+  return guide?.evidence.docs.some(function ai(doc) {
+    return doc.package === "ai";
+  }) ?? false;
+}
+
+export function debugTargetsFor(
+  guide: Guide | undefined,
+  project: ProjectContext | undefined,
+): DebugTarget[] {
+  if (!usesAiSdk(guide, project)) {
+    return [];
+  }
+  return [
+    {
+      tool: "ai-sdk-devtools",
+      reason:
+        "Inspect whether a tool was requested, which arguments were generated, and what the tool returned.",
+      command: DEVTOOLS_COMMAND,
+      warning: DEVTOOLS_WARNING,
+    },
+  ];
+}
+
+function evalTargetsFor(guide: Guide | undefined): EvalTarget[] {
+  const spec: GuideEval | undefined = guide?.eval;
+  if (!guide || !spec) {
+    return [];
+  }
+  return [
+    {
+      system: "promptfoo",
+      kind: spec.kind,
+      guide: guide.slug,
+      cases: spec.cases,
+    },
+  ];
 }
 
 function curatedReferences(guide: Guide | undefined): CuratedReference[] {
@@ -244,5 +303,7 @@ export function buildPlan(
       docs: documentationTargets,
       references: sourceReferences,
     },
+    evalTargets: evalTargetsFor(guide),
+    debugTargets: debugTargetsFor(guide, options.project),
   };
 }
