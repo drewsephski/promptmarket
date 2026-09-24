@@ -2,8 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import {
   buildContext,
   loadContentCatalog,
+  parseProjectContext,
   type ContentCatalog,
   type ContextDetail,
+  type ProjectContext,
 } from "@promptmarket/content";
 import type { Registry } from "@promptmarket/registry";
 import { z } from "zod";
@@ -27,6 +29,25 @@ const inputSchema = z.object({
     .optional()
     .describe(
       "compact returns the concept, prompt body, and relevant guide sections. full adds the rest of each document.",
+    ),
+  project: z
+    .object({
+      framework: z.string().optional(),
+      language: z.string().optional(),
+      packageManager: z.string().optional(),
+      packages: z.array(z.string()).optional(),
+      ai: z
+        .object({
+          sdk: z.string().optional(),
+          provider: z.string().optional(),
+        })
+        .optional(),
+      database: z.array(z.string()).optional(),
+      orm: z.array(z.string()).optional(),
+    })
+    .optional()
+    .describe(
+      "If you know the current project's framework or dependencies, include them so results can be tailored to the existing stack. Do not send source files or environment variables.",
     ),
 });
 
@@ -110,6 +131,31 @@ const outputSchema = z.object({
       reason: z.string(),
     }),
   ),
+  primary: z
+    .object({
+      topic: z.string().optional(),
+      prompt: z.string().optional(),
+      guide: z.string().optional(),
+    })
+    .optional(),
+  matches: z
+    .array(
+      z.object({
+        kind: z.enum(["topic", "prompt", "guide"]),
+        name: z.string(),
+        reasons: z.array(z.string()),
+      }),
+    )
+    .optional(),
+  project: z.unknown().optional(),
+  projectNotes: z
+    .array(
+      z.object({
+        status: z.enum(["present", "missing"]),
+        label: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 const annotations = {
@@ -128,7 +174,7 @@ export function registerBuildContext(
     {
       title: "Build context",
       description:
-        "Assemble the lessons, prompts, guides, and skills for a feature in one call. Deterministic lexical ranking plus the catalog graph. Does not call a model. Use this before implementing an AI feature.",
+        "Assemble the lessons, prompts, guides, and skills for a feature in one call. Deterministic lexical ranking plus the catalog graph. Does not call a model. Use this before implementing an AI feature. If you know the current project's framework or dependencies, include them so results can be tailored to the existing stack.",
       inputSchema,
       outputSchema,
       annotations,
@@ -136,10 +182,14 @@ export function registerBuildContext(
     async function handleBuildContext(args) {
       try {
         const recipes = await registry.search(args.query);
+        const project = args.project
+          ? parseProjectContext(args.project)
+          : undefined;
         const context = buildContext(catalog, {
           query: args.query,
           maxItems: args.maxItems,
           detail: args.detail as ContextDetail | undefined,
+          project: project as ProjectContext | undefined,
           skills: recipes.map(function skill(recipe) {
             return {
               name: recipe.name,

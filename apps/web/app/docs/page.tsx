@@ -70,7 +70,8 @@ export default function DocsPage() {
       <Bezel coreClassName="panel">
         <h2>CLI</h2>
         <CommandBlock
-          command={`pnpm dlx @promptmarket/cli context "I'm adding tool calling to a Next.js app"
+          command={`pnpm dlx @promptmarket/cli detect
+pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project .
 pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag
@@ -79,13 +80,20 @@ pnpm dlx @promptmarket/cli guide ai-product-brief-builder`}
           label="Copy CLI examples"
         />
         <p className="note">
-          <code>context</code> assembles the lesson, prompt, and guide for a
-          feature. <code>search</code> prints guides, lessons, prompts, and
-          skills. <code>show</code> prints a prompt body, or a skill when the
-          name is not a prompt. <code>learn</code> prints a short lesson and its
-          URL. <code>guides</code> lists tutorials, and <code>guide</code>{" "}
-          prints one guide's outline and URL. The same catalog is available at{" "}
-          <code>/api/content/v1</code>.
+          <code>detect</code> fingerprints the current project from{" "}
+          <code>package.json</code> and config filenames. <code>context</code>{" "}
+          assembles the lesson, prompt, and guide for a feature, and{" "}
+          <code>--project</code> reranks that result toward the detected stack
+          without overriding a more specific query. <code>search</code> prints
+          guides, lessons, prompts, and skills. <code>show</code> prints a
+          prompt body, or a skill when the name is not a prompt.{" "}
+          <code>learn</code> prints a short lesson and its URL.{" "}
+          <code>guides</code> lists tutorials, and <code>guide</code> prints one
+          guide's outline and URL. Commands read the hosted catalog at{" "}
+          <code>/api/content/v1</code>, then a local cache, then the bundled
+          snapshot. <code>--offline</code> uses the snapshot directly.{" "}
+          <code>build_context</code> accepts the same project fingerprint when
+          an agent already knows the stack.
         </p>
       </Bezel>
 

@@ -26,6 +26,8 @@ export type CliDeps = {
   interactive?: boolean;
   prompt?: (question: string) => Promise<string>;
   runner?: ProcessRunner;
+  contentFetch?: typeof fetch;
+  contentCacheDir?: string;
 };
 
 type Io = {

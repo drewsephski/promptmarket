@@ -5,13 +5,24 @@ export {
   type BuiltContext,
   type ContextDetail,
   type ContextGuide,
+  type ContextMatch,
   type ContextNextStep,
   type ContextPrompt,
+  type ProjectNote,
   type ContextSkill,
   type ContextSkillInput,
   type ContextTopic,
 } from "./context.js";
 export { handleContentRequest } from "./content-http.js";
+export { contentMeta, contentVersionOf, type ContentMeta } from "./meta.js";
+export {
+  detectProject,
+  otherProjectLabels,
+  parseProjectContext,
+  projectStackLabels,
+  type ProjectContext,
+} from "./project.js";
+export { createContentCatalog } from "./load.js";
 export { ContentError, ContentNotFoundError } from "./errors.js";
 export {
   categoryLabel,

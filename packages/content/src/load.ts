@@ -836,6 +836,14 @@ export function loadContentCatalog(options?: LoadOptions): ContentCatalog {
     return left.title.localeCompare(right.title);
   });
   assertGraph(topics, prompts, guides);
+  return createContentCatalog(topics, prompts, guides);
+}
+
+export function createContentCatalog(
+  topics: LearnTopic[],
+  prompts: PromptDocument[],
+  guides: Guide[],
+): ContentCatalog {
   const topicMap = new Map(
     topics.map(function entry(topic) {
       return [topic.slug, topic] as const;

@@ -2,12 +2,16 @@ import { Command, CommanderError } from "commander";
 import {
   buildContext,
   ContentNotFoundError,
-  loadContentCatalog,
+  detectProject,
+  otherProjectLabels,
   type BuiltContext,
   type ContentCatalog,
   type ContextDetail,
+  type ProjectContext,
+  type ProjectNote,
   type PromptDocument,
 } from "@promptmarket/content";
+import { CLI_VERSION, resolveContent } from "./content-source.js";
 import {
   findOutdatedRecipes,
   installFromLockfile,
@@ -82,8 +86,60 @@ function inspectRecipe(recipe: Recipe) {
   };
 }
 
+function formatProject(project: ProjectContext): string {
+  const lines = [
+    `Framework       ${project.framework ?? "unknown"}`,
+    `Language        ${project.language ?? "unknown"}`,
+    `Package manager ${project.packageManager ?? "unknown"}`,
+  ];
+  const ai = [project.ai?.sdk, project.ai?.provider].filter(function present(value): value is string {
+    return Boolean(value);
+  });
+  if (ai.length > 0) {
+    lines.push("", "AI", ...ai);
+  }
+  const database = [...(project.database ?? []), ...(project.orm ?? [])];
+  if (database.length > 0) {
+    lines.push("", "Database", ...database);
+  }
+  const other = otherProjectLabels(project);
+  if (other.length > 0) {
+    lines.push("", "Other", ...other);
+  }
+  return lines.join("\n");
+}
+
+function formatNotes(notes: ProjectNote[]): string[] {
+  return notes.map(function line(note) {
+    if (note.status === "present") {
+      return `✓ Already using ${note.label}`;
+    }
+    return `+ Need ${note.label}`;
+  });
+}
+
 function formatContext(context: BuiltContext): string {
   const lines: string[] = [];
+  if (context.project) {
+    lines.push("PROJECT");
+    for (const label of [
+      context.project.framework,
+      context.project.language,
+      context.project.ai?.sdk,
+      context.project.ai?.provider,
+      ...(context.project.database ?? []),
+      ...(context.project.orm ?? []),
+    ]) {
+      if (label) {
+        lines.push(label);
+      }
+    }
+    lines.push("");
+  }
+  if (context.projectNotes && context.projectNotes.length > 0) {
+    lines.push("PROJECT NOTES");
+    lines.push(...formatNotes(context.projectNotes), "");
+  }
   if (context.topics.length > 0) {
     lines.push("CONCEPTS");
     for (const topic of context.topics) {
@@ -150,8 +206,23 @@ function formatContext(context: BuiltContext): string {
 
 const SITE_ORIGIN = "https://promptmarket.sh";
 
-function contentCatalog(contentDir?: string): ContentCatalog {
-  return loadContentCatalog(contentDir ? { contentDir } : undefined);
+type ContentFlags = {
+  offline?: boolean;
+  contentApi?: string;
+  content?: string;
+};
+
+async function openContent(
+  flags: ContentFlags,
+  deps: CliDeps,
+): Promise<{ catalog: ContentCatalog; source: string; version: string }> {
+  return resolveContent({
+    offline: flags.offline,
+    contentDir: flags.content,
+    contentApi: flags.contentApi,
+    cacheDir: deps.contentCacheDir,
+    fetch: deps.contentFetch,
+  });
 }
 
 function writeFailure(
@@ -180,7 +251,7 @@ export function createProgram(
     .description(
       "Search the PromptMarket catalog, assemble context, or install skills",
     )
-    .version("0.3.0")
+    .version(CLI_VERSION)
     .configureOutput({
       writeOut: function writeOut(message: string) {
         io.stdout(message);
@@ -199,6 +270,8 @@ export function createProgram(
     .option("--recipes <dir>", "Read recipes from a local directory")
     .option("--registry <url>", "Registry API base URL")
     .option("--content <dir>", "Read lessons and prompts from a directory")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
     .action(async function searchAction(
       query: string,
       options: {
@@ -206,10 +279,12 @@ export function createProgram(
         recipes?: string;
         registry?: string;
         content?: string;
+        offline?: boolean;
+        contentApi?: string;
       },
     ) {
       try {
-        const catalog = contentCatalog(options.content);
+        const { catalog } = await openContent(options, deps);
         const guides = catalog.searchGuides(query);
         const lessons = catalog.searchTopics(query);
         const prompts = catalog.searchPrompts(query);
@@ -298,10 +373,13 @@ export function createProgram(
     .option("--max-items <count>", "Maximum items in each collection", "5")
     .option("--recipes <dir>", "Read recipes from a local directory")
     .option("--registry <url>", "Registry API base URL")
+    .option("--project <dir>", "Detect the project at this directory and tailor context")
     .option(
       "--content <dir>",
       "Read lessons, prompts, and guides from a directory",
     )
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
     .action(async function contextAction(
       query: string,
       options: {
@@ -311,6 +389,9 @@ export function createProgram(
         recipes?: string;
         registry?: string;
         content?: string;
+        offline?: boolean;
+        contentApi?: string;
+        project?: string;
       },
     ) {
       try {
@@ -323,12 +404,16 @@ export function createProgram(
           throw new Error('Expected --detail to be "compact" or "full"');
         }
         const maxItems = Number(options.maxItems);
-        const catalog = contentCatalog(options.content);
+        const { catalog } = await openContent(options, deps);
+        const project = options.project
+          ? detectProject(options.project)
+          : undefined;
         const recipes = await createRegistry(options).search(query);
         const context = buildContext(catalog, {
           query,
           detail: detail as ContextDetail,
           maxItems,
+          project,
           skills: recipes.map(function skill(recipe) {
             return {
               name: recipe.name,
@@ -349,17 +434,66 @@ export function createProgram(
     });
 
   program
+    .command("detect")
+    .description("Detect the framework and dependencies in a project directory")
+    .argument("[dir]", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .action(function detectAction(dir: string, options: { json?: boolean }) {
+      const project = detectProject(dir);
+      if (options.json) {
+        io.stdout(json({ ok: true, project }));
+        return;
+      }
+      io.stdout(`${formatProject(project)}\n`);
+    });
+
+  program
     .command("info")
-    .description("Inspect one recipe, optionally at an exact version")
-    .argument("<recipe>", "Recipe name or name@version")
+    .description(
+      "Show CLI and content versions, or inspect one recipe at an optional version",
+    )
+    .argument("[recipe]", "Recipe name or name@version")
     .option("--json", "Print deterministic JSON to stdout")
     .option("--recipes <dir>", "Read recipes from a local directory")
     .option("--registry <url>", "Registry API base URL")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read content from a directory")
     .action(async function infoAction(
-      name: string,
-      options: { json?: boolean; recipes?: string; registry?: string },
+      name: string | undefined,
+      options: {
+        json?: boolean;
+        recipes?: string;
+        registry?: string;
+        offline?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
     ) {
       try {
+        if (!name) {
+          const content = await openContent(options, deps);
+          const payload = {
+            cli: CLI_VERSION,
+            contentSource: content.source,
+            contentVersion: content.version,
+            offlineSnapshot: "included",
+          };
+          if (options.json) {
+            io.stdout(json({ ok: true, ...payload }));
+            return;
+          }
+          io.stdout(
+            [
+              `PromptMarket CLI       ${payload.cli}`,
+              `Content source         ${payload.contentSource}`,
+              `Content version        ${payload.contentVersion}`,
+              `Offline snapshot       ${payload.offlineSnapshot}`,
+              "",
+            ].join("\n"),
+          );
+          return;
+        }
         const ref = parseRecipeRef(name);
         const recipe = await createRegistry(options).get(ref.name, ref.version);
         if (options.json) {
@@ -568,6 +702,8 @@ export function createProgram(
     .option("--recipes <dir>", "Read recipes from a local directory")
     .option("--registry <url>", "Registry API base URL")
     .option("--content <dir>", "Read lessons and prompts from a directory")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
     .action(async function showAction(
       name: string,
       options: {
@@ -575,10 +711,12 @@ export function createProgram(
         recipes?: string;
         registry?: string;
         content?: string;
+        offline?: boolean;
+        contentApi?: string;
       },
     ) {
       try {
-        const catalog = contentCatalog(options.content);
+        const { catalog } = await openContent(options, deps);
         let prompt: PromptDocument | undefined;
         try {
           prompt = catalog.getPrompt(name);
@@ -652,12 +790,15 @@ export function createProgram(
     .argument("<slug>", "Lesson slug, such as rag")
     .option("--json", "Print deterministic JSON to stdout")
     .option("--content <dir>", "Read lessons and prompts from a directory")
-    .action(function learnAction(
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
+    .action(async function learnAction(
       slug: string,
-      options: { json?: boolean; content?: string },
+      options: { json?: boolean; content?: string; offline?: boolean; contentApi?: string },
     ) {
       try {
-        const topic = contentCatalog(options.content).getTopic(slug);
+        const { catalog } = await openContent(options, deps);
+        const topic = catalog.getTopic(slug);
         const url = `${SITE_ORIGIN}${topic.href}`;
         if (options.json) {
           io.stdout(
@@ -698,12 +839,17 @@ export function createProgram(
       "--content <dir>",
       "Read lessons, prompts, and guides from a directory",
     )
-    .action(function guidesAction(options: {
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
+    .action(async function guidesAction(options: {
       json?: boolean;
       content?: string;
+      offline?: boolean;
+      contentApi?: string;
     }) {
       try {
-        const guides = contentCatalog(options.content).guides;
+        const { catalog } = await openContent(options, deps);
+        const guides = catalog.guides;
         if (options.json) {
           io.stdout(
             json({
@@ -742,12 +888,15 @@ export function createProgram(
       "--content <dir>",
       "Read lessons, prompts, and guides from a directory",
     )
-    .action(function guideAction(
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
+    .action(async function guideAction(
       slug: string,
-      options: { json?: boolean; content?: string },
+      options: { json?: boolean; content?: string; offline?: boolean; contentApi?: string },
     ) {
       try {
-        const guide = contentCatalog(options.content).getGuide(slug);
+        const { catalog } = await openContent(options, deps);
+        const guide = catalog.getGuide(slug);
         const url = `${SITE_ORIGIN}${guide.href}`;
         const sections = guide.sections.map(function summarize(section) {
           return { id: section.id, title: section.title };

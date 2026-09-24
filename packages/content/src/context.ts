@@ -1,5 +1,6 @@
 import { ContentError } from "./errors.js";
 import { rankContent, type ContentCatalog } from "./load.js";
+import { projectStackLabels, type ProjectContext } from "./project.js";
 import { rankItems, tokenize } from "./search.js";
 import type {
   Guide,
@@ -30,6 +31,7 @@ export type BuildContextOptions = {
   detail?: ContextDetail;
   skills?: readonly ContextSkillInput[];
   origin?: string;
+  project?: ProjectContext;
 };
 
 export type ContextTopic = {
@@ -105,6 +107,17 @@ export type ContextNextStep = {
   reason: string;
 };
 
+export type ContextMatch = {
+  kind: "topic" | "prompt" | "guide";
+  name: string;
+  reasons: string[];
+};
+
+export type ProjectNote = {
+  status: "present" | "missing";
+  label: string;
+};
+
 export type BuiltContext = {
   query: string;
   topics: ContextTopic[];
@@ -112,6 +125,14 @@ export type BuiltContext = {
   guides: ContextGuide[];
   skills: ContextSkill[];
   suggestedNextSteps: ContextNextStep[];
+  primary?: {
+    topic?: string;
+    prompt?: string;
+    guide?: string;
+  };
+  matches?: ContextMatch[];
+  project?: ProjectContext;
+  projectNotes?: ProjectNote[];
 };
 
 function clampMaxItems(value: number | undefined): number {
@@ -158,11 +179,24 @@ function tokenIdf(titles: string[], tokens: string[]): Map<string, number> {
   return weights;
 }
 
+function stackOverlap(stack: readonly string[], labels: readonly string[]): string[] {
+  const folded = labels.map(function lower(label) {
+    return label.toLowerCase();
+  });
+  return stack.filter(function hit(item) {
+    const name = item.toLowerCase();
+    return folded.some(function matches(label) {
+      return name === label || name.startsWith(`${label} `);
+    });
+  });
+}
+
 function orderForContext<T>(
   query: string,
   rows: Array<{ item: T; score: number; matchedAll: boolean }>,
   titleOf: (item: T) => string,
   maxItems: number,
+  projectScore?: (item: T) => number,
 ): T[] {
   const tokens = tokenize(query);
   const idf = tokenIdf(
@@ -183,6 +217,13 @@ function orderForContext<T>(
       }
       if (left.matchedAll !== right.matchedAll) {
         return left.matchedAll ? -1 : 1;
+      }
+      if (projectScore) {
+        const leftProject = projectScore(left.item);
+        const rightProject = projectScore(right.item);
+        if (leftFocus === rightFocus && leftProject !== rightProject) {
+          return rightProject - leftProject;
+        }
       }
       return right.score - left.score;
     })
@@ -486,6 +527,9 @@ export function buildContext(
     },
     maxItems,
   );
+  const projectLabels = options.project
+    ? projectStackLabels(options.project)
+    : [];
   const guides = orderForContext(
     focused,
     ranked.guides,
@@ -493,6 +537,9 @@ export function buildContext(
       return guide.title;
     },
     maxItems,
+    function overlap(guide) {
+      return stackOverlap(guide.stack, projectLabels).length;
+    },
   );
   const prompts = assemblePrompts(
     catalog,
@@ -524,6 +571,43 @@ export function buildContext(
   const presentedGuides = guides.map(function present(guide) {
     return presentGuide(guide, focused, origin, detail);
   });
+  const primaryTopic = presentedTopics[0];
+  const primaryPrompt = presentedPrompts[0];
+  const primaryGuide = guides[0];
+  const presentedGuide = presentedGuides[0];
+  const matches: ContextMatch[] = [];
+  if (primaryTopic) {
+    matches.push({
+      kind: "topic",
+      name: primaryTopic.slug,
+      reasons: queryReasons(focused, primaryTopic.title, [primaryTopic.slug]),
+    });
+  }
+  if (primaryPrompt) {
+    matches.push({
+      kind: "prompt",
+      name: primaryPrompt.name,
+      reasons: queryReasons(focused, primaryPrompt.title, [
+        primaryPrompt.category,
+      ]),
+    });
+  }
+  if (primaryGuide && presentedGuide) {
+    const shared = stackOverlap(primaryGuide.stack, projectLabels);
+    matches.push({
+      kind: "guide",
+      name: primaryGuide.slug,
+      reasons: [
+        ...queryReasons(focused, primaryGuide.title, primaryGuide.concepts),
+        ...shared.map(function used(label) {
+          return `Project uses ${label}`;
+        }),
+      ],
+    });
+  }
+  const projectNotes = primaryGuide
+    ? notesForGuide(primaryGuide, projectLabels, options.project)
+    : undefined;
   return {
     query,
     topics: presentedTopics,
@@ -536,5 +620,59 @@ export function buildContext(
       presentedGuides,
       skills,
     ),
+    primary: {
+      ...(primaryTopic ? { topic: primaryTopic.slug } : {}),
+      ...(primaryPrompt ? { prompt: primaryPrompt.name } : {}),
+      ...(presentedGuide ? { guide: presentedGuide.slug } : {}),
+    },
+    matches,
+    ...(options.project ? { project: options.project } : {}),
+    ...(projectNotes && projectNotes.length > 0 ? { projectNotes } : {}),
   };
+}
+
+function queryReasons(
+  query: string,
+  title: string,
+  concepts: readonly string[],
+): string[] {
+  const tokens = tokenize(query);
+  const haystack = `${title} ${concepts.join(" ")}`.toLowerCase();
+  const matched = tokens.filter(function hit(token) {
+    return haystack.includes(token);
+  });
+  if (matched.length === 0) {
+    return ["Query matched the catalog wording"];
+  }
+  return [`Query matched ${matched.join(" and ")}`];
+}
+
+function notesForGuide(
+  guide: Guide,
+  projectLabels: readonly string[],
+  project: ProjectContext | undefined,
+): ProjectNote[] {
+  if (!project) {
+    return [];
+  }
+  const notes: ProjectNote[] = [];
+  for (const label of guide.stack) {
+    const present = stackOverlap([label], projectLabels).length > 0;
+    if (label === "TypeScript" || label.startsWith("Next.js")) {
+      continue;
+    }
+    notes.push({
+      status: present ? "present" : "missing",
+      label,
+    });
+  }
+  if (
+    guide.concepts.includes("embeddings") &&
+    !project.packages.some(function embedding(name) {
+      return name.toLowerCase().includes("embed");
+    })
+  ) {
+    notes.push({ status: "missing", label: "embedding model" });
+  }
+  return notes;
 }

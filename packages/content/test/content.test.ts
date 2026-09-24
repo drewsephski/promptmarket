@@ -6,9 +6,11 @@ import {
   ContentError,
   assertDistinctSlugs,
   buildContext,
+  contentMeta,
   detectPlaceholders,
   handleContentRequest,
   loadContentCatalog,
+  resolveContentDir,
 } from "../src/index.js";
 
 describe("promptmarket content", function contentSuite() {
@@ -431,5 +433,72 @@ Hello {{input}}
     };
     expect(contextBody.topics[0]?.slug).toBe("rag");
     expect(missing.status).toBe(404);
+  });
+
+  test("serves content metadata and project-aware context", async function servesMeta() {
+    const catalog = loadContentCatalog();
+    const meta = contentMeta(catalog, resolveContentDir());
+    const response = await handleContentRequest(
+      catalog,
+      new Request("https://promptmarket.sh/api/content/v1/meta"),
+      meta,
+    );
+    const cached = await handleContentRequest(
+      catalog,
+      new Request("https://promptmarket.sh/api/content/v1/meta", {
+        headers: { "if-none-match": `"${meta.contentVersion}"` },
+      }),
+      meta,
+    );
+    const project = await handleContentRequest(
+      catalog,
+      new Request(
+        `https://promptmarket.sh/api/content/v1/context?q=${encodeURIComponent("add a knowledge base")}&project=${encodeURIComponent(
+          JSON.stringify({
+            framework: "Next.js",
+            packages: ["drizzle-orm"],
+            database: ["Neon"],
+            orm: ["Drizzle"],
+          }),
+        )}`,
+      ),
+      meta,
+    );
+    const intent = await handleContentRequest(
+      catalog,
+      new Request(
+        `https://promptmarket.sh/api/content/v1/context?q=${encodeURIComponent("teach me Convex tool calling")}&project=${encodeURIComponent(
+          JSON.stringify({
+            framework: "Next.js",
+            database: ["Neon"],
+            packages: [],
+          }),
+        )}`,
+      ),
+      meta,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      schemaVersion: number;
+      contentVersion: string;
+      counts: { lessons: number; prompts: number; guides: number };
+    };
+    expect(body.schemaVersion).toBe(1);
+    expect(body.contentVersion).toMatch(/^[a-f0-9]{7}$/);
+    expect(body.counts.guides).toBe(3);
+    expect(cached.status).toBe(304);
+    const tailored = (await project.json()) as {
+      guides: Array<{ slug: string }>;
+      matches: Array<{ name: string; reasons: string[] }>;
+    };
+    expect(tailored.guides[0]?.slug).toBe("rag-knowledge-base");
+    expect(
+      tailored.matches.find(function guide(match) {
+        return match.name === "rag-knowledge-base";
+      })?.reasons,
+    ).toEqual(expect.arrayContaining(["Project uses Neon"]));
+    const convex = (await intent.json()) as { guides: Array<{ slug: string }> };
+    expect(convex.guides[0]?.slug).toBe("ai-project-manager-convex");
   });
 });

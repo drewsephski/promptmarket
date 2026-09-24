@@ -572,4 +572,47 @@ describe("promptmarket mcp", function promptmarketMcp() {
     expect(context.guides[0]?.url).toContain("/guides/rag-knowledge-base");
     expect(context.skills).toEqual([]);
   });
+
+  test("build_context tailors guides to a supplied project fingerprint", async function projectContext() {
+    const client = await connect(registryWith([]));
+    const loaded = (await client.callTool({
+      name: "build_context",
+      arguments: {
+        query: "add a knowledge base",
+        project: {
+          framework: "Next.js",
+          packages: ["ai", "@openrouter/ai-sdk-provider", "drizzle-orm"],
+          database: ["Neon"],
+          orm: ["Drizzle"],
+        },
+      },
+    })) as ToolResult;
+    const intent = (await client.callTool({
+      name: "build_context",
+      arguments: {
+        query: "teach me Convex tool calling",
+        project: {
+          framework: "Next.js",
+          database: ["Neon"],
+          packages: ["ai"],
+        },
+      },
+    })) as ToolResult;
+
+    expect(loaded.isError).toBeFalsy();
+    const context = loaded.structuredContent as {
+      guides: Array<{ slug: string }>;
+      matches?: Array<{ name: string; reasons: string[] }>;
+    };
+    expect(context.guides[0]?.slug).toBe("rag-knowledge-base");
+    expect(
+      context.matches?.find(function guide(match) {
+        return match.name === "rag-knowledge-base";
+      })?.reasons,
+    ).toEqual(expect.arrayContaining(["Project uses Neon", "Project uses Drizzle"]));
+    const convex = intent.structuredContent as {
+      guides: Array<{ slug: string }>;
+    };
+    expect(convex.guides[0]?.slug).toBe("ai-project-manager-convex");
+  });
 });

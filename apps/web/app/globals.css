@@ -406,10 +406,10 @@ input {
 
 .command {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
   margin-top: 0.85rem;
-  padding: 0.8rem 0.8rem 0.8rem 1rem;
+  padding: 0.55rem 0.55rem 0.55rem 1.05rem;
   border-radius: 1.15rem;
   background: rgba(28, 23, 18, 0.11);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
@@ -422,7 +422,7 @@ input {
   max-width: 100%;
   margin: 0;
   overflow-x: auto;
-  padding: 0.35rem 0;
+  padding: 0;
   font-family: var(--mono);
   font-size: 0.78rem;
   line-height: 1.55;
@@ -451,7 +451,7 @@ input {
   cursor: pointer;
   text-decoration: none;
   transition:
-    transform 700ms var(--ease),
+    transform 200ms var(--ease),
     background 700ms var(--ease);
 }
 
@@ -461,6 +461,7 @@ input {
 
 .pill:active {
   transform: scale(0.98);
+  transition-duration: 90ms, 700ms;
 }
 
 .pill-copy-label {
@@ -907,6 +908,7 @@ input {
 
   .command {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .command .pill {
@@ -988,6 +990,7 @@ input {
   .rise,
   .pill,
   .pill-mark,
+  .command,
   .entry .bezel,
   .menu-toggle span,
   .overlay,

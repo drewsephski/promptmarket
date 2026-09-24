@@ -30,7 +30,7 @@ export function CopyButton({ value, label }: CopyButtonProps) {
       onClick={function onCopy() {
         void handleClick();
       }}
-      aria-label={label}
+      aria-label={copied ? "Copied" : label}
     >
       <span className="pill-copy-label">
         <span aria-hidden={copied}>Copy</span>

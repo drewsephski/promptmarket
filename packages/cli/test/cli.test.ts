@@ -1,8 +1,14 @@
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
+import {
+  contentMeta,
+  handleContentRequest,
+  loadContentCatalog,
+  resolveContentDir,
+} from "@promptmarket/content";
 import { FileRegistry, handleRegistryRequest } from "@promptmarket/registry";
 import { createRegistry, run, type CliIo } from "../src/program.js";
 
@@ -48,6 +54,7 @@ describe("promptmarket cli", function promptmarketCli() {
         "search",
         "review pull request",
         "--json",
+        "--offline",
         "--recipes",
         recipesDir,
       ],
@@ -77,6 +84,7 @@ describe("promptmarket cli", function promptmarketCli() {
         "promptmarket",
         "search",
         "tool calling convex",
+        "--offline",
         "--recipes",
         recipesDir,
       ],
@@ -102,6 +110,7 @@ describe("promptmarket cli", function promptmarketCli() {
         "context",
         "I'm building a RAG feature in Next.js with Neon",
         "--json",
+        "--offline",
         "--recipes",
         recipesDir,
       ],
@@ -523,7 +532,7 @@ describe("promptmarket cli", function promptmarketCli() {
   test("show and learn print prompt content", async function showsPromptAndLesson() {
     const io = captureIo();
     const shown = await run(
-      ["node", "promptmarket", "show", "structured-data-extractor", "--json"],
+      ["node", "promptmarket", "show", "structured-data-extractor", "--json", "--offline"],
       io,
     );
     const shownPayload = JSON.parse(io.out()) as {
@@ -533,7 +542,7 @@ describe("promptmarket cli", function promptmarketCli() {
     };
     const learnIo = captureIo();
     const learned = await run(
-      ["node", "promptmarket", "learn", "rag", "--json"],
+      ["node", "promptmarket", "learn", "rag", "--json", "--offline"],
       learnIo,
     );
     const lesson = JSON.parse(learnIo.out()) as {
@@ -552,7 +561,7 @@ describe("promptmarket cli", function promptmarketCli() {
 
     const guidesIo = captureIo();
     const guidesExit = await run(
-      ["node", "promptmarket", "guides", "--json"],
+      ["node", "promptmarket", "guides", "--json", "--offline"],
       guidesIo,
     );
     const guides = JSON.parse(guidesIo.out()) as {
@@ -561,7 +570,7 @@ describe("promptmarket cli", function promptmarketCli() {
     };
     const guideIo = captureIo();
     const guideExit = await run(
-      ["node", "promptmarket", "guide", "ai-product-brief-builder", "--json"],
+      ["node", "promptmarket", "guide", "ai-product-brief-builder", "--json", "--offline"],
       guideIo,
     );
     const guide = JSON.parse(guideIo.out()) as {
@@ -585,5 +594,204 @@ describe("promptmarket cli", function promptmarketCli() {
       "https://promptmarket.sh/guides/ai-product-brief-builder",
     );
     expect(guide.guide.sections.length).toBeGreaterThan(5);
+  });
+
+  test("detect prints a project fingerprint and ignores env files", async function detectsProject() {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "promptmarket-detect-"));
+    tempDirs.push(directory);
+    await writeFile(
+      path.join(directory, "package.json"),
+      JSON.stringify({
+        packageManager: "pnpm@11.0.0",
+        dependencies: {
+          next: "16.0.0",
+          ai: "6.0.0",
+          "@openrouter/ai-sdk-provider": "2.0.0",
+          "@neondatabase/serverless": "1.0.0",
+          "drizzle-orm": "0.44.0",
+          zod: "4.0.0",
+          tailwindcss: "4.0.0",
+        },
+        devDependencies: { typescript: "7.0.0" },
+      }),
+    );
+    await writeFile(path.join(directory, "tsconfig.json"), "{}");
+    await writeFile(path.join(directory, ".env"), "OPENROUTER_API_KEY=secret\n");
+    const io = captureIo();
+    const exitCode = await run(
+      ["node", "promptmarket", "detect", directory],
+      io,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(io.out()).toContain("Framework       Next.js 16");
+    expect(io.out()).toContain("Language        TypeScript");
+    expect(io.out()).toContain("Package manager pnpm");
+    expect(io.out()).toContain("OpenRouter");
+    expect(io.out()).toContain("Neon");
+    expect(io.out()).toContain("Drizzle");
+    expect(io.out()).toContain("Zod");
+    expect(io.out()).not.toContain("secret");
+  });
+
+  test("context --project prefers the stack without overriding intent", async function projectContext() {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "promptmarket-project-"));
+    tempDirs.push(directory);
+    await writeFile(
+      path.join(directory, "package.json"),
+      JSON.stringify({
+        dependencies: {
+          next: "16.0.0",
+          "@neondatabase/serverless": "1.0.0",
+          "drizzle-orm": "0.44.0",
+        },
+      }),
+    );
+    const io = captureIo();
+    const exitCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "context",
+        "add a knowledge base",
+        "--project",
+        directory,
+        "--json",
+        "--offline",
+        "--recipes",
+        recipesDir,
+      ],
+      io,
+    );
+    const payload = JSON.parse(io.out()) as {
+      guides: Array<{ slug: string }>;
+      primary?: { guide?: string };
+      matches?: Array<{ kind: string; name: string; reasons: string[] }>;
+      projectNotes?: Array<{ status: string; label: string }>;
+    };
+    const convexIo = captureIo();
+    const convexExit = await run(
+      [
+        "node",
+        "promptmarket",
+        "context",
+        "teach me Convex tool calling",
+        "--project",
+        directory,
+        "--json",
+        "--offline",
+        "--recipes",
+        recipesDir,
+      ],
+      convexIo,
+    );
+    const convex = JSON.parse(convexIo.out()) as {
+      guides: Array<{ slug: string }>;
+    };
+
+    expect(exitCode).toBe(0);
+    expect(payload.guides[0]?.slug).toBe("rag-knowledge-base");
+    expect(payload.primary?.guide).toBe("rag-knowledge-base");
+    expect(
+      payload.matches?.find(function guide(match) {
+        return match.kind === "guide";
+      })?.reasons,
+    ).toEqual(expect.arrayContaining(["Project uses Neon", "Project uses Drizzle"]));
+    expect(payload.projectNotes).toEqual(
+      expect.arrayContaining([{ status: "missing", label: "pgvector" }]),
+    );
+    expect(convexExit).toBe(0);
+    expect(convex.guides[0]?.slug).toBe("ai-project-manager-convex");
+  });
+
+  test("info without a recipe reports the content source", async function printsContentInfo() {
+    const io = captureIo();
+    const exitCode = await run(
+      ["node", "promptmarket", "info", "--offline"],
+      io,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(io.out()).toContain("PromptMarket CLI       0.4.0");
+    expect(io.out()).toContain("Content source         offline");
+    expect(io.out()).toContain("Offline snapshot       included");
+  });
+
+  test("uses hosted content, then cache, then the bundled snapshot", async function hostedContentFallback() {
+    const catalog = loadContentCatalog();
+    const meta = contentMeta(catalog, resolveContentDir());
+    const cacheDir = await mkdtemp(path.join(os.tmpdir(), "promptmarket-cache-"));
+    tempDirs.push(cacheDir);
+    let requests = 0;
+    const server = createServer(function handle(request, response) {
+      requests += 1;
+      const url = new URL(request.url ?? "/", "http://127.0.0.1");
+      const match = request.headers["if-none-match"];
+      const ifNoneMatch = Array.isArray(match) ? (match[0] ?? "") : (match ?? "");
+      const result = handleContentRequest(
+        catalog,
+        new Request(`https://promptmarket.sh${url.pathname}${url.search}`, {
+          headers: ifNoneMatch ? { "if-none-match": ifNoneMatch } : {},
+        }),
+        meta,
+      );
+      void result.arrayBuffer().then(function write(body) {
+        response.writeHead(result.status, {
+          etag: result.headers.get("etag") ?? "",
+          "content-type": "application/json",
+        });
+        response.end(Buffer.from(body));
+      });
+    });
+    await new Promise<void>(function listen(resolve) {
+      server.listen(0, "127.0.0.1", function listening() {
+        resolve();
+      });
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("expected a port");
+    }
+    const api = `http://127.0.0.1:${address.port}/api/content/v1`;
+    const io = captureIo();
+    const first = await run(
+      ["node", "promptmarket", "learn", "rag", "--json", "--content-api", api],
+      io,
+      { contentCacheDir: cacheDir },
+    );
+    const cachedIo = captureIo();
+    const second = await run(
+      ["node", "promptmarket", "learn", "rag", "--json", "--content-api", api],
+      cachedIo,
+      { contentCacheDir: cacheDir },
+    );
+    server.close();
+    const failedIo = captureIo();
+    const failed = await run(
+      [
+        "node",
+        "promptmarket",
+        "learn",
+        "rag",
+        "--json",
+        "--content-api",
+        "http://127.0.0.1:1",
+      ],
+      failedIo,
+      {
+        contentCacheDir: path.join(cacheDir, "empty"),
+        contentFetch: function failFetch() {
+          return Promise.reject(new Error("offline"));
+        },
+      },
+    );
+
+    expect(first).toBe(0);
+    expect(JSON.parse(io.out()).topic.slug).toBe("rag");
+    expect(second).toBe(0);
+    expect(requests).toBeGreaterThan(1);
+    expect(failed).toBe(0);
+    expect(JSON.parse(failedIo.out()).topic.slug).toBe("rag");
+    await mkdir(cacheDir, { recursive: true });
   });
 });

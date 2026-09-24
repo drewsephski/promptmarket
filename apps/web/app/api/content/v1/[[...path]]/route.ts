@@ -1,11 +1,18 @@
 import {
+  contentMeta,
   handleContentRequest,
   loadContentCatalog,
+  resolveContentDir,
 } from "@promptmarket/content";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export function GET(request: Request): Response {
-  return handleContentRequest(loadContentCatalog(), request);
+  const catalog = loadContentCatalog();
+  return handleContentRequest(
+    catalog,
+    request,
+    contentMeta(catalog, resolveContentDir()),
+  );
 }
