@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { Registry } from "@promptmarket/registry";
+import { AGENT_COMPATIBILITY, type Registry } from "@promptmarket/registry";
 import { z } from "zod";
 import { toolError, toolResult } from "../tool-result.js";
 
@@ -20,7 +20,7 @@ const outputSchema = z.object({
     url: z.string().optional(),
   }),
   compatibility: z.array(
-    z.enum(["cursor", "claude-code", "codex", "github-copilot", "generic"]),
+    z.enum(AGENT_COMPATIBILITY),
   ),
   requires: z.object({
     mcp: z.array(z.string()),

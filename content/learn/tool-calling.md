@@ -17,6 +17,7 @@ relatedPrompts:
   - tool-selection-router
   - safe-tool-calling-system
 relatedTopics:
+  - agent-prompts
   - agents
   - agentic-loops
 ---

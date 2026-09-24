@@ -19,6 +19,7 @@ relatedTopics:
   - tool-calling
   - agentic-loops
 relatedPrompts:
+  - agent-system-prompt
   - safe-tool-calling-system
 exampleInput: |
   Where is order 1842?

@@ -14,6 +14,7 @@ commonMistakes:
   - "Filling gaps from general knowledge about what policies usually say."
   - "Skipping citations because the tone sounds certain."
 relatedTopics:
+  - agent-prompts
   - question-answering
   - rag
   - optimization-ladder

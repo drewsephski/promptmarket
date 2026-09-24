@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "promptmarket": {
+      "command": "node",
+      "args": ["packages/mcp/bin/promptmarket-mcp.js"]
+    }
+  }
+}

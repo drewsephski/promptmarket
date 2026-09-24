@@ -5,6 +5,8 @@ import { GuideHeader } from "../../../components/guide/guide-header";
 import { GuideNavigation } from "../../../components/guide/guide-navigation";
 import { GuideStep } from "../../../components/guide/guide-step";
 import { GuideTableOfContents } from "../../../components/guide/guide-toc";
+import { StructuredData } from "../../../components/structured-data";
+import { breadcrumbData } from "../../../lib/structured-data";
 import { pageMetadata } from "../../../lib/present";
 
 interface GuidePageProps {
@@ -23,7 +25,7 @@ export async function generateMetadata({
   const { slug } = await params;
   try {
     const guide = loadContentCatalog().getGuide(slug);
-    return pageMetadata(guide.title, guide.description, guide.href);
+    return pageMetadata(guide.title, guide.description, guide.href, "article");
   } catch {
     return { title: "Guide" };
   }
@@ -46,6 +48,12 @@ export default async function GuidePage({ params }: GuidePageProps) {
 
   return (
     <main className="guide">
+      <StructuredData
+        data={breadcrumbData([
+          { name: "Guides", path: "/guides" },
+          { name: guide.title, path: guide.href },
+        ])}
+      />
       <nav className="crumbs" aria-label="Breadcrumb">
         <a href="/guides">Guides</a>
         <span aria-hidden="true">/</span>

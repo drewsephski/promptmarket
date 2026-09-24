@@ -1,9 +1,16 @@
+import {
+  PROMPTMARKET_MCP_URL,
+  projectCheckLines,
+  type FileChange,
+  type SetupMode,
+  type SetupReport,
+} from "./setup-common.js";
+import { AGENT_INSTRUCTIONS } from "./agent-instructions.js";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { detectProject, type ProjectContext } from "@promptmarket/content";
+import { detectProject } from "@promptmarket/content";
 
-export const PROMPTMARKET_MCP_URL = "https://promptmarket.sh/mcp";
 export const CONTEXT7_SETUP_COMMAND = [
   "npx",
   "--yes",
@@ -20,44 +27,9 @@ description: Use PromptMarket when implementing or debugging AI application feat
 alwaysApply: false
 ---
 
-Before modifying AI-related code:
-
-1. Read \`.promptmarket/features/*.yaml\`.
-2. Compare the files you expect to edit with \`implementation.paths\`.
-3. If an existing feature owns those paths, treat its contract as the baseline, call \`get_workflow\` with that feature, and preserve its verification requirements.
-4. If no contract matches and the work creates a new AI capability, call \`get_workflow\`, then suggest \`promptmarket feature init\` with \`--path\` after implementation.
-5. \`get_workflow\` returns the same decision as \`build_context\` and \`build_plan\`, plus \`documentationTargets\`, \`debugTargets\`, \`evalTargets\`, and \`observabilityTargets\`. It does not read the repository, and it does not call Context7, Promptfoo, or Langfuse.
-6. Read \`documentationTargets\`. For each target, query Context7 for that library, the target reason, and the detected version. Treat Context7 as the source of truth for current library syntax.
-7. Treat PromptMarket as the source of truth for architecture, the AI engineering pattern, implementation sequence, prompting strategy, and which checks matter.
-8. If current documentation conflicts with a PromptMarket guide, follow the current documentation, adapt the guide, and mention the discrepancy.
-9. Implement using the existing repository's conventions. Do not paste instrumentation from memory.
-10. When behavior is wrong, read \`debugTargets\` and follow the diagnosis order. For \`ai-sdk-devtools\`, follow current AI SDK docs to register DevTools for the installed version, then run \`npx @ai-sdk/devtools@latest\`. DevTools stores prompts and tool data locally in plain text. Use it only in local development.
-11. Before considering the work complete, keep the feature contract in \`.promptmarket/features/\`. Own the files you touched with \`implementation.paths\`. Run \`promptmarket verify changed --base origin/main\` so only the impacted Promptfoo suite runs. Promptfoo owns the evaluator.
-12. Before merge, run \`promptmarket verify ci --github\` so the Promptfoo GitHub Action gates the pull request. The workflow computes impact inside the job and runs only the affected suites. Promptfoo posts the result and fails the job when the suite fails. \`promptmarket feature check --all\` fails only on objective contract problems.
-13. When production tracing is in scope, read \`observabilityTargets\`. For Langfuse, query current Langfuse and AI SDK docs, inspect any existing OpenTelemetry setup, and integrate without replacing an existing tracer. \`promptmarket observe setup langfuse\` prints packages, environment names, and metadata. It does not edit application code. Curated Langfuse dataset items become regression cases with \`promptmarket verify sync langfuse\`.
-14. Never assume external services or environment configuration exist merely because the guide requires them.
-
-A PromptMarket plan is curated knowledge from when the guide was written. It becomes a verified plan only after those documentation targets are reconciled with live library docs. Do not describe the plan as live-verified before that step.
-`;
-
-export type SetupMode = "dry-run" | "write" | "remove" | "check";
+${AGENT_INSTRUCTIONS}`;
 
 type JsonRecord = Record<string, unknown>;
-
-export type FileChange = {
-  file: string;
-  action: "create" | "update" | "remove" | "unchanged" | "missing";
-  lines: string[];
-};
-
-export type SetupReport = {
-  mode: SetupMode;
-  changes: FileChange[];
-  checks: string[];
-  projectLines: string[];
-  ready: boolean;
-  agentHint: boolean;
-};
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -68,7 +40,12 @@ function promptmarketServer(url = PROMPTMARKET_MCP_URL): JsonRecord {
 }
 
 function sameServer(value: unknown): boolean {
-  if (!isRecord(value) || value.url !== PROMPTMARKET_MCP_URL) {
+  if (
+    !isRecord(value) ||
+    value.url !== PROMPTMARKET_MCP_URL ||
+    "command" in value ||
+    value.disabled === true
+  ) {
     return false;
   }
   return true;
@@ -111,7 +88,10 @@ function withPromptmarket(config: JsonRecord): JsonRecord {
   const servers = isRecord(config.mcpServers) ? { ...config.mcpServers } : {};
   const current = servers.promptmarket;
   if (isRecord(current)) {
-    servers.promptmarket = { ...current, url: PROMPTMARKET_MCP_URL };
+    const remote = { ...current, url: PROMPTMARKET_MCP_URL };
+    for (const key of ["command", "args", "env", "cwd", "type", "disabled"])
+      delete (remote as JsonRecord)[key];
+    servers.promptmarket = remote;
   } else {
     servers.promptmarket = promptmarketServer();
   }
@@ -161,7 +141,9 @@ function mcpChange(before: string | undefined, after: string): FileChange {
   const servers = isRecord(previous.mcpServers) ? previous.mcpServers : {};
   const current = servers.promptmarket;
   const previousUrl =
-    isRecord(current) && typeof current.url === "string" ? current.url : undefined;
+    isRecord(current) && typeof current.url === "string"
+      ? current.url
+      : undefined;
   if (previousUrl && previousUrl !== PROMPTMARKET_MCP_URL) {
     return {
       file: MCP_FILE,
@@ -187,48 +169,24 @@ function mcpChange(before: string | undefined, after: string): FileChange {
 
 function ruleChange(before: string | undefined): FileChange {
   if (before === undefined) {
-    return { file: RULE_FILE, action: "create", lines: ["create promptmarket.mdc"] };
+    return {
+      file: RULE_FILE,
+      action: "create",
+      lines: ["create promptmarket.mdc"],
+    };
   }
   if (before === CURSOR_RULE) {
-    return { file: RULE_FILE, action: "unchanged", lines: ["promptmarket.mdc"] };
+    return {
+      file: RULE_FILE,
+      action: "unchanged",
+      lines: ["promptmarket.mdc"],
+    };
   }
-  return { file: RULE_FILE, action: "update", lines: ["replace promptmarket.mdc"] };
-}
-
-function majorOf(version: string | undefined): string | undefined {
-  return version?.split(".")[0];
-}
-
-function withVersion(label: string, version: string | undefined): string {
-  const major = majorOf(version);
-  return major ? `${label} ${major}` : label;
-}
-
-export function projectCheckLines(project: ProjectContext): string[] {
-  const lines: string[] = [];
-  if (project.framework) {
-    lines.push(project.framework);
-  }
-  if (project.ai?.sdk) {
-    lines.push(withVersion("AI SDK", project.versions.ai));
-  }
-  if (project.ai?.provider?.split(", ").includes("OpenRouter")) {
-    lines.push(
-      withVersion(
-        "OpenRouter provider",
-        project.versions["@openrouter/ai-sdk-provider"],
-      ),
-    );
-  } else if (project.ai?.provider) {
-    lines.push(project.ai.provider);
-  }
-  for (const name of project.database ?? []) {
-    lines.push(name);
-  }
-  for (const name of project.orm ?? []) {
-    lines.push(name);
-  }
-  return lines;
+  return {
+    file: RULE_FILE,
+    action: "update",
+    lines: ["replace promptmarket.mdc"],
+  };
 }
 
 export function cursorAgentInstalled(): boolean {
@@ -304,7 +262,12 @@ export async function planCursorSetup(
     const changes: FileChange[] = [
       {
         file: MCP_FILE,
-        action: inspected.mcpRaw === undefined ? "missing" : hadServer ? "remove" : "unchanged",
+        action:
+          inspected.mcpRaw === undefined
+            ? "missing"
+            : hadServer
+              ? "remove"
+              : "unchanged",
         lines: hadServer
           ? ["remove mcpServers.promptmarket"]
           : ["mcpServers.promptmarket was not present"],
@@ -330,11 +293,14 @@ export async function planCursorSetup(
 
   const mcp = mcpChange(inspected.mcpRaw, inspected.nextMcp);
   const rule = ruleChange(inspected.ruleRaw);
-  if (inspected.mcpRaw !== undefined && sameServer(
-    isRecord(inspected.mcpConfig.mcpServers)
-      ? inspected.mcpConfig.mcpServers.promptmarket
-      : undefined,
-  )) {
+  if (
+    inspected.mcpRaw !== undefined &&
+    sameServer(
+      isRecord(inspected.mcpConfig.mcpServers)
+        ? inspected.mcpConfig.mcpServers.promptmarket
+        : undefined,
+    )
+  ) {
     mcp.action = "unchanged";
     mcp.lines = [`mcpServers.promptmarket.url = ${PROMPTMARKET_MCP_URL}`];
   }
@@ -346,43 +312,6 @@ export async function planCursorSetup(
     ready: mcp.action === "unchanged" && rule.action === "unchanged",
     agentHint: false,
   };
-}
-
-export function renderSetupReport(report: SetupReport): string {
-  const lines = ["PromptMarket + Cursor", ""];
-  if (report.mode === "check") {
-    lines.push(...report.checks, "", "Project");
-    if (report.projectLines.length === 0) {
-      lines.push("No framework or AI packages detected.");
-    } else {
-      for (const line of report.projectLines) {
-        lines.push(`✓ ${line}`);
-      }
-    }
-    lines.push("", report.ready ? "Ready." : "Not ready.");
-    if (report.ready && report.agentHint) {
-      lines.push("", "Cursor CLI can list the tools:", "agent mcp list-tools promptmarket");
-    }
-    return `${lines.join("\n")}\n`;
-  }
-
-  for (const change of report.changes) {
-    lines.push(`${change.file}`, `  ${change.action}`);
-    for (const detail of change.lines) {
-      lines.push(`  ${detail}`);
-    }
-    lines.push("");
-  }
-  if (report.mode === "dry-run") {
-    lines.push("Dry run. Re-run with --write to apply.");
-  } else if (report.mode === "remove") {
-    lines.push("Removed PromptMarket from this project.");
-  } else if (report.ready) {
-    lines.push("Already installed.");
-  } else {
-    lines.push("Applied.");
-  }
-  return `${lines.join("\n")}\n`;
 }
 
 export async function applyCursorSetup(
@@ -397,7 +326,10 @@ export async function applyCursorSetup(
   const mcpPath = path.join(directory, MCP_FILE);
   const rulePath = path.join(directory, RULE_FILE);
   if (mode === "remove") {
-    if (inspected.mcpRaw !== undefined && inspected.mcpRaw !== inspected.nextMcp) {
+    if (
+      inspected.mcpRaw !== undefined &&
+      inspected.mcpRaw !== inspected.nextMcp
+    ) {
       await writeAtomic(mcpPath, inspected.nextMcp);
     }
     if (inspected.ruleRaw !== undefined) {

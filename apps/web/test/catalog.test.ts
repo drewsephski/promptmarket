@@ -101,7 +101,7 @@ describe("catalog presentation", function catalogPresentation() {
     expect(JSON.stringify(blocks)).not.toContain("<script");
   });
 
-  test("builds the learn and prompt routes and filters the gallery", function buildsRoutes() {
+  test("builds the learn and prompt routes and filters the gallery", async function buildsRoutes() {
     const lessons = learnParams();
     const prompts = promptParams();
     const extractor = prompts.find(function matches(item) {
@@ -126,7 +126,7 @@ describe("catalog presentation", function catalogPresentation() {
       ]),
     );
     expect(
-      sitemap().map(function urlOf(entry) {
+      (await sitemap()).map(function urlOf(entry) {
         return entry.url;
       }),
     ).toEqual(

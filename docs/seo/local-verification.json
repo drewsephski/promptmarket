@@ -1,0 +1,540 @@
+{
+  "date": "2026-09-24",
+  "environment": "local production build on port 3107, not deployed",
+  "sitemapCount": 59,
+  "pages": [
+    {
+      "path": "/",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "WebSite"
+      ]
+    },
+    {
+      "path": "/learn",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/prompts",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "CollectionPage"
+      ]
+    },
+    {
+      "path": "/guides",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/context",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/docs",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/docs/cli",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/docs/mcp",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/recipes",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/create",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/contribute",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/recipes/dependency-security-audit",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/recipes/github-issue-to-implementation",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/recipes/github-pr-review",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/recipes/nextjs-debug-production-build",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/recipes/release-readiness-check",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/recipes/repo-onboarding",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/recipes/safe-database-migration",
+      "status": 200,
+      "issues": [],
+      "schema": []
+    },
+    {
+      "path": "/learn/what-llms-are-good-at",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/structured-data",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/classification",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/summarization",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/question-answering",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/agents",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/prompting-fundamentals",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/structured-outputs",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/rag",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/tool-calling",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/workflows",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/agentic-loops",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/ai-engineering-is-experimental",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/evals",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/optimization-ladder",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/building-ai-products",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/learn/agent-prompts",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/agent-system-prompt",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/answer-with-citations",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/content-moderation-classifier",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/customer-support-answer",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/document-classifier",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/entity-extractor",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/intent-classifier",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/json-output-system",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/language-translator",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/meeting-action-items",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/meeting-summarizer",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/natural-language-filter-parser",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/prompt-evaluator",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/rag-context-compressor",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/rag-grounded-answer",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/response-quality-grader",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/safe-tool-calling-system",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/search-query-rewriter",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/structured-data-extractor",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/support-ticket-triage",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/prompts/tool-selection-router",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/guides/ai-product-brief-builder",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/guides/rag-knowledge-base",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    },
+    {
+      "path": "/guides/ai-project-manager-convex",
+      "status": 200,
+      "issues": [],
+      "schema": [
+        "BreadcrumbList"
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "path": "/prompts?q=rag",
+      "status": 200,
+      "canonical": [
+        "https://promptmarket.sh/prompts"
+      ],
+      "robots": [
+        "noindex, follow"
+      ]
+    },
+    {
+      "path": "/prompts?category=agents",
+      "status": 200,
+      "canonical": [
+        "https://promptmarket.sh/prompts"
+      ],
+      "robots": [
+        "noindex, follow"
+      ]
+    },
+    {
+      "path": "/recipes?q=review",
+      "status": 200,
+      "canonical": [
+        "https://promptmarket.sh/recipes"
+      ],
+      "robots": [
+        "noindex, follow"
+      ]
+    },
+    {
+      "path": "/context?q=rag",
+      "status": 200,
+      "canonical": [
+        "https://promptmarket.sh/context"
+      ],
+      "robots": [
+        "noindex, follow"
+      ]
+    },
+    {
+      "path": "/recipes/github-pr-review?version=0.1.0",
+      "status": 200,
+      "canonical": [
+        "https://promptmarket.sh/recipes/github-pr-review"
+      ],
+      "robots": []
+    },
+    {
+      "path": "/recipes/github-pr-review?version=invalid",
+      "status": 200,
+      "canonical": [],
+      "robots": [
+        "noindex, follow"
+      ]
+    }
+  ],
+  "apiHeaders": [
+    {
+      "path": "/api/content/v1/catalog",
+      "status": 200,
+      "robotsHeader": "noindex"
+    },
+    {
+      "path": "/mcp",
+      "status": 405,
+      "robotsHeader": "noindex"
+    }
+  ],
+  "missing": [
+    {
+      "path": "/learn/does-not-exist",
+      "status": 404,
+      "robots": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/prompts/does-not-exist",
+      "status": 404,
+      "robots": [
+        "noindex"
+      ]
+    },
+    {
+      "path": "/recipes/does-not-exist",
+      "status": 404,
+      "robots": [
+        "noindex"
+      ]
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { RecipeBuilder } from "../../components/recipe-builder";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/create" },
   title: "Create",
   description:
     "Build a PromptMarket recipe, validate it, and download the package.",

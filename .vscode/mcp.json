@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "promptmarket": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["packages/mcp/bin/promptmarket-mcp.js"]
+    }
+  }
+}

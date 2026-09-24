@@ -1,4 +1,6 @@
+import { renderSetupReport, type SetupMode } from "./setup-common.js";
 import { Command, CommanderError } from "commander";
+import { SETUP_AGENTS, applyAgentSetup, planAgentSetup, type SetupAgent } from "./agent-setup.js";
 import {
   assessChangeImpact,
   assessFeature,
@@ -39,8 +41,6 @@ import {
   handoffContext7,
   inspectCursorSetup,
   planCursorSetup,
-  renderSetupReport,
-  type SetupMode,
 } from "./cursor-setup.js";
 import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -1637,6 +1637,31 @@ export function createProgram(
   const setup = program
     .command("setup")
     .description("Install PromptMarket into a coding agent");
+
+  for (const agent of Object.keys(SETUP_AGENTS) as SetupAgent[]) {
+    const profile = SETUP_AGENTS[agent];
+    setup.command(agent)
+      .description(`Add the PromptMarket MCP server and workflow instructions for ${profile.name}`)
+      .option("--write", `Update ${profile.file} and ${profile.instructions}`)
+      .option("--dry-run", "Print changes without writing files (default)")
+      .option("--check", "Check project configuration, without connecting to MCP")
+      .option("--remove", "Remove PromptMarket while preserving unrelated configuration and instructions")
+      .option("--dir <dir>", "Project directory", ".")
+      .action(async (options: { write?: boolean; dryRun?: boolean; check?: boolean; remove?: boolean; dir: string }) => {
+        try {
+          if ([options.write, options.dryRun, options.check, options.remove].filter(Boolean).length > 1) {
+            throw new Error("Use only one of --write, --dry-run, --remove, or --check");
+          }
+          const mode: SetupMode = options.write ? "write" : options.remove ? "remove" : options.check ? "check" : "dry-run";
+          const { report, files } = await planAgentSetup(options.dir, agent, mode);
+          if (mode === "write" || mode === "remove") await applyAgentSetup(options.dir, files);
+          io.stdout(renderSetupReport(report));
+          if (mode === "check" && !report.ready) state.exitCode = 1;
+        } catch (error) {
+          writeFailure(io, state, false, error);
+        }
+      });
+  }
 
   setup
     .command("cursor")

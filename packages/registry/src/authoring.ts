@@ -173,7 +173,7 @@ export function validateRecipeDraft(draft: RecipeDraft): {
       code: "compatibility_invalid",
       path: "compatibility",
       message:
-        "Compatibility must list one or more of: cursor, claude-code, codex, github-copilot, generic.",
+        `Compatibility must list one or more of: ${AGENT_COMPATIBILITY.join(", ")}.`,
     });
   }
   if (!FILESYSTEMS.has(draft.capabilities.filesystem)) {
@@ -267,7 +267,7 @@ export function coerceRecipeDraft(input: unknown): {
       code: "compatibility_invalid",
       path: "compatibility",
       message:
-        "Compatibility must list one or more of: cursor, claude-code, codex, github-copilot, generic.",
+        `Compatibility must list one or more of: ${AGENT_COMPATIBILITY.join(", ")}.`,
     });
   }
   const compatibility = rawCompatibility.filter(

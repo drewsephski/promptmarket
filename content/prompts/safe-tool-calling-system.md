@@ -14,10 +14,12 @@ commonMistakes:
   - "Letting the model describe a side effect as if it already happened."
   - "Using this prompt as a substitute for authorization checks in code."
 relatedTopics:
+  - agent-prompts
   - agents
   - tool-calling
   - agentic-loops
 relatedPrompts:
+  - agent-system-prompt
   - tool-selection-router
 exampleInput: |
   Email the customer that their refund was sent.

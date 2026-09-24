@@ -4,6 +4,26 @@ Search lessons and prompts, or install agent skills, on [PromptMarket](https://p
 
 Requires Node.js 22 or newer.
 
+## Coding agent setup
+
+Choose your client:
+
+```bash
+pnpm dlx @promptmarket/cli setup codex --write
+pnpm dlx @promptmarket/cli setup opencode --write
+pnpm dlx @promptmarket/cli setup cursor --write
+pnpm dlx @promptmarket/cli setup claude-code --write
+pnpm dlx @promptmarket/cli setup github-copilot --write
+```
+
+Each command configures the hosted MCP server in the client's project config and installs the same workflow guidance in its instruction file. Copilot setup targets VS Code. Existing unrelated settings and instructions are retained. Codex TOML formatting and comments are normalized when the config changes; OpenCode JSONC comments are preserved.
+
+Omit `--write` for a preview, use `--check` to check project files, or `--remove` to remove the integration. `--dir` targets another project. Codex and OpenCode share a managed block in `AGENTS.md`, retained until both integrations are removed. Reload your client after setup; `--check` does not verify a live MCP connection. Codex requires project trust, and Claude Code may ask you to approve the project server.
+
+Cursor retains its optional `--with-context7` installer handoff. For other clients, configure Context7 using its official setup instructions or read official library documentation directly. See [MCP setup](https://promptmarket.sh/docs/mcp) for all config formats and other clients.
+
+Agents without remote MCP support can consume `context "your feature" --project . --format agent` through the CLI.
+
 ## Prompts and lessons
 
 ```bash
@@ -37,7 +57,7 @@ pnpm dlx @promptmarket/cli add github-pr-review@0.1.0
 pnpm dlx @promptmarket/cli install
 ```
 
-`add` installs the recipe into `.agents/skills/` and records the version, registry source, and integrity hash in `promptmarket.lock`. `install` reinstalls the locked versions and does not change the lockfile.
+`add` installs the recipe into `.agents/skills/` and records the version, registry source, and integrity hash in `promptmarket.lock`. `install` reinstalls the locked versions and does not change the lockfile. If your agent does not discover `.agents/skills/`, ask it to read the installed `SKILL.md` or use its documented skill import mechanism.
 
 ## Author
 

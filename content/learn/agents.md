@@ -14,9 +14,11 @@ whenNotToUse:
   - "You cannot explain what the model is allowed to do."
 diagram: agent
 relatedPrompts:
+  - agent-system-prompt
   - tool-selection-router
   - safe-tool-calling-system
 relatedTopics:
+  - agent-prompts
   - what-llms-are-good-at
   - tool-calling
   - agentic-loops

@@ -171,8 +171,8 @@ export function WorkflowResult({
         {variant === "full" ? (
           <CopyButton
             value={view.copyText}
-            label="Copy for Cursor"
-            text="Copy for Cursor"
+            label="Copy for agent"
+            text="Copy for agent"
           />
         ) : null}
         {view.guideHref ? (

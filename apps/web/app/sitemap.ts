@@ -1,8 +1,11 @@
 import { loadContentCatalog } from "@promptmarket/content";
 import type { MetadataRoute } from "next";
+import { catalogRegistry } from "../lib/catalog";
+import { SITE_URL } from "../lib/present";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const catalog = loadContentCatalog();
+  const recipes = await catalogRegistry().list();
   const paths = [
     "",
     "/learn",
@@ -13,6 +16,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/docs/cli",
     "/docs/mcp",
     "/recipes",
+    "/create",
+    "/contribute",
+    ...recipes.map((recipe) => `/recipes/${recipe.name}`),
     ...catalog.topics.map(function topicPath(topic) {
       return topic.href;
     }),
@@ -23,9 +29,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       return guide.href;
     }),
   ];
-  return paths.map(function entry(path) {
+  return [...new Set(paths)].map(function entry(path) {
     return {
-      url: `https://promptmarket.sh${path}`,
+      url: `${SITE_URL}${path}`,
     };
   });
 }

@@ -1,0 +1,19 @@
+priority,primary_keyword,secondary_keywords,target_path,work,country,volume,difficulty,current_rank,data_status
+PageSpeed Insights API,"HTTP 429, public API quota exceeded",No measured Lighthouse score or field Core Web Vitals reported.,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+Priority,Primary query,Secondary terms,Owning page,Work,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P1,agent prompts,AI agent prompts; free agent prompts; agent prompt examples; AI agent prompt templates,/prompts,"Expanded library introduction, selection help, and template links implemented",US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P1,AI agent system prompt template,agent system prompt; system prompt example for agents,/prompts/agent-system-prompt,New copyable template implemented,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P1,how to write AI agent prompts,agent prompting best practices; agent prompt structure,/learn/agent-prompts,New practical lesson implemented,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P1,tool calling system prompt,safe tool calling prompt; agent tool instructions,/prompts/safe-tool-calling-system,Existing template; add reproducible denied-tool and failure cases next,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P1,RAG prompt template,grounded answer prompt; RAG system prompt example,/prompts/rag-grounded-answer,Existing template; expand evidence and adversarial examples next,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P1,AI agent skills,coding agent skills; installable agent workflows,/recipes,"Title, description, and heading improved",US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P2,AI code review agent prompt,pull request review skill; GitHub PR review agent,/recipes/github-pr-review,Canonical and sitemap discovery fixed; expand task-specific evidence,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P2,customer support prompt template,support agent prompt; grounded support reply,/prompts/customer-support-answer,Expand handoff and missing-policy cases,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P2,JSON system prompt,structured output prompt; JSON prompt template,/prompts/json-output-system,Expand schema validation and retry examples,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P2,tool selection prompt,agent routing prompt; tool router template,/prompts/tool-selection-router,Expand ambiguous intent / no-match cases,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P2,prompt evaluation template,prompt evaluator; compare prompts,/prompts/prompt-evaluator,Add downloadable fixed evaluation cases with actual results,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P2,how to build a RAG knowledge base,Next.js RAG tutorial; pgvector knowledge base,/guides/rag-knowledge-base,Existing long guide; keep commands and evidence current,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P2,AI engineering roadmap,learn AI engineering; AI engineering tutorials,/learn,Descriptive title implemented,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P2,AI agent context engineering,coding agent context; PromptMarket,/,"Descriptive title, description, canonical and library link implemented",US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P3,MCP prompt server,PromptMarket MCP; coding agent MCP setup,/docs/mcp,Expand with a verified end-to-end installation example,US,,,,Intent-based candidate; Ahrefs keyword API unavailable
+P3,Claude Code skills vs prompts,agent skills vs system prompts; SKILL.md vs prompt,proposed /learn/prompts-vs-skills,Publish only after hands-on compatibility checks; do not duplicate /recipes,US,,,,Intent-based candidate; Ahrefs keyword API unavailable

@@ -4,7 +4,7 @@ import { pageMetadata } from "../../lib/present";
 
 export const metadata: Metadata = pageMetadata(
   "Docs",
-  "Install PromptMarket in Cursor, the CLI, MCP, or use it on the web.",
+  "Use PromptMarket with Codex, OpenCode, Cursor, Claude Code, Copilot, any compatible MCP client, or the CLI.",
   "/docs",
 );
 

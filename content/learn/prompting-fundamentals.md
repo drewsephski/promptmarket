@@ -17,6 +17,7 @@ relatedPrompts:
   - language-translator
   - structured-data-extractor
 relatedTopics:
+  - agent-prompts
   - structured-outputs
 ---
 

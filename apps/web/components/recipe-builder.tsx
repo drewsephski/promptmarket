@@ -63,7 +63,7 @@ export function RecipeBuilder() {
   const [author, setAuthor] = useState("");
   const [authorUrl, setAuthorUrl] = useState("");
   const [tags, setTags] = useState("");
-  const [compatibility, setCompatibility] = useState<string[]>(["cursor"]);
+  const [compatibility, setCompatibility] = useState<string[]>(["generic"]);
   const [filesystem, setFilesystem] = useState<string>("none");
   const [shell, setShell] = useState(false);
   const [network, setNetwork] = useState("");

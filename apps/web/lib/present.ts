@@ -7,6 +7,7 @@ export function pageMetadata(
   title: string,
   description: string,
   path: string,
+  type: "website" | "article" = "website",
 ): Metadata {
   return {
     title,
@@ -17,8 +18,22 @@ export function pageMetadata(
       description,
       url: path,
       siteName: "PromptMarket",
-      type: "article",
+      type,
     },
+    twitter: { card: "summary", title, description },
+  };
+}
+
+/** Search results are useful to visitors, but aren't editorial landing pages. */
+export function searchPageMetadata(
+  title: string,
+  description: string,
+  path: string,
+  hasFilters: boolean,
+): Metadata {
+  return {
+    ...pageMetadata(title, description, path),
+    ...(hasFilters ? { robots: { index: false, follow: true } } : {}),
   };
 }
 

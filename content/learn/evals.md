@@ -18,6 +18,7 @@ relatedPrompts:
   - response-quality-grader
   - support-ticket-triage
 relatedTopics:
+  - agent-prompts
   - rag
   - ai-engineering-is-experimental
   - optimization-ladder

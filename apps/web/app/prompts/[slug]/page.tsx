@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CommandBlock } from "../../../components/command-block";
 import { RelatedGuides } from "../../../components/related-guides";
+import { StructuredData } from "../../../components/structured-data";
+import { breadcrumbData } from "../../../lib/structured-data";
 import { pageMetadata } from "../../../lib/present";
 
 interface PromptPageProps {
@@ -21,7 +23,12 @@ export async function generateMetadata({
   const { slug } = await params;
   try {
     const prompt = loadContentCatalog().getPrompt(slug);
-    return pageMetadata(prompt.title, prompt.description, prompt.href);
+    return pageMetadata(
+      prompt.title,
+      prompt.description,
+      prompt.href,
+      "article",
+    );
   } catch {
     return { title: "Prompt" };
   }
@@ -39,6 +46,12 @@ export default async function PromptPage({ params }: PromptPageProps) {
 
   return (
     <main className="article article-wide">
+      <StructuredData
+        data={breadcrumbData([
+          { name: "Prompts", path: "/prompts" },
+          { name: prompt.title, path: prompt.href },
+        ])}
+      />
       <header className="page-intro">
         <nav className="crumbs" aria-label="Breadcrumb">
           <a href="/prompts">Prompts</a>

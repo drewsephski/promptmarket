@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 const links: Array<{ href: string; label: string; external?: boolean }> = [
   { href: "/context", label: "Context" },
+  { href: "/prompts", label: "Prompts" },
   { href: "/guides", label: "Guides" },
   { href: "/learn", label: "Learn" },
   { href: "/docs", label: "Docs" },

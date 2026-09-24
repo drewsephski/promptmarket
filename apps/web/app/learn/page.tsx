@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { pageMetadata } from "../../lib/present";
 
 export const metadata: Metadata = pageMetadata(
-  "Learn",
+  "AI Engineering Roadmap & Tutorials",
   "A short AI engineering roadmap: what models are good at, the core patterns, and why evals come before more architecture.",
   "/learn",
 );

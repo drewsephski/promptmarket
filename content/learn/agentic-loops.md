@@ -14,9 +14,11 @@ whenNotToUse:
   - "A wrong action is expensive and you have no confirmation in the loop."
 diagram: agent
 relatedPrompts:
+  - agent-system-prompt
   - safe-tool-calling-system
   - tool-selection-router
 relatedTopics:
+  - agent-prompts
   - agents
   - tool-calling
   - workflows

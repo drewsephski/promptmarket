@@ -47,6 +47,20 @@ describe("SkillNameSchema", function skillNameSchema() {
 });
 
 describe("RecipeManifestSchema", function recipeManifestSchema() {
+  test("accepts OpenCode compatibility without accepting arbitrary client labels", () => {
+    expect(
+      RecipeManifestSchema.parse({
+        ...validManifest,
+        compatibility: ["opencode", "generic"],
+      }).compatibility,
+    ).toEqual(["opencode", "generic"]);
+    expect(
+      RecipeManifestSchema.safeParse({
+        ...validManifest,
+        compatibility: ["unknown-agent"],
+      }).success,
+    ).toBe(false);
+  });
   test("fills PromptMarket defaults and keeps the entrypoint on SKILL.md", function fillsDefaults() {
     const manifest = RecipeManifestSchema.parse(validManifest);
 

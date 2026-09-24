@@ -23,7 +23,7 @@ pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag
 pnpm dlx @promptmarket/cli guides
 pnpm dlx @promptmarket/cli guide ai-product-brief-builder
-pnpm dlx @promptmarket/cli setup cursor --write --with-context7
+pnpm dlx @promptmarket/cli setup --help
 pnpm dlx @promptmarket/cli add github-pr-review`;
 
 export default function CliDocsPage() {
@@ -68,12 +68,24 @@ export default function CliDocsPage() {
           <code>--offline</code> uses the bundled snapshot.
         </p>
         <p>
-          <code>setup cursor --write</code> merges the hosted MCP server into{" "}
-          <code>.cursor/mcp.json</code> and writes a project rule.{" "}
-          <code>--with-context7</code> detects an existing Context7 server and,
-          if one is missing, hands off to{" "}
-          <code>npx ctx7 setup --cursor --project</code>. PromptMarket does not
-          copy or store that API key.
+          <code>setup &lt;agent&gt; --write</code> installs the hosted MCP
+          server and workflow instructions. Choose <code>codex</code>,{" "}
+          <code>opencode</code>, <code>cursor</code>, <code>claude-code</code>,
+          or <code>github-copilot</code> (VS Code). Omit <code>--write</code> to
+          preview. <code>--check</code> checks project files;{" "}
+          <code>--remove</code> removes the integration. Use <code>--dir</code>{" "}
+          to target another project. Existing unrelated settings and
+          instructions are retained. Codex TOML comments and formatting are
+          normalized when its config changes. OpenCode setup updates an existing{" "}
+          <code>opencode.jsonc</code> if present.
+        </p>
+        <p>
+          <code>setup cursor --write --with-context7</code> retains the optional
+          handoff to Context7’s official Cursor installer. For other agents,
+          configure Context7 with its official client instructions, or use
+          official library documentation directly. PromptMarket does not copy or
+          store the Context7 API key. See <a href="/docs/mcp">MCP setup</a> for
+          native config examples and client verification steps.
         </p>
       </div>
     </main>

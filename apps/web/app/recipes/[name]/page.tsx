@@ -12,6 +12,7 @@ import { SkillBody } from "../../../components/skill-body";
 import { catalogRegistry } from "../../../lib/catalog";
 import {
   HOSTED_MCP_URL,
+  pageMetadata,
   exactInstallCommand,
   latestInstallCommand,
   recipeHref,
@@ -30,13 +31,16 @@ export async function generateMetadata({
   const { name } = await params;
   const requested = versionQuery((await searchParams).version);
   if (requested && !SemVerSchema.safeParse(requested).success) {
-    return { title: name };
+    return { title: name, robots: { index: false, follow: true } };
   }
   try {
     const recipe = await catalogRegistry().get(name, requested);
     return {
-      title: recipe.manifest.name,
-      description: recipe.skill.description,
+      ...pageMetadata(
+        `${recipe.manifest.name} Agent Skill`,
+        recipe.skill.description,
+        recipeHref(name),
+      ),
     };
   } catch {
     return { title: "Recipe" };

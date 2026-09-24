@@ -3,16 +3,21 @@ import type { Metadata } from "next";
 import { Bezel } from "../../components/bezel";
 import { ArrowMark } from "../../components/marks";
 import { catalogRegistry } from "../../lib/catalog";
-import { pageMetadata, searchQuery } from "../../lib/present";
-
-export const metadata: Metadata = pageMetadata(
-  "Skills",
-  "Installable agent skills. Prompts you can copy live in the gallery.",
-  "/recipes",
-);
+import { searchPageMetadata, searchQuery } from "../../lib/present";
 
 interface RecipesPageProps {
   searchParams: Promise<{ q?: string | string[] }>;
+}
+
+export async function generateMetadata({
+  searchParams,
+}: RecipesPageProps): Promise<Metadata> {
+  return searchPageMetadata(
+    "AI Agent Skills for Coding Workflows",
+    "Browse installable coding agent skills for pull request reviews, database migrations, and release checks. Inspect instructions and install with the CLI.",
+    "/recipes",
+    Boolean(searchQuery((await searchParams).q).trim()),
+  );
 }
 
 export default async function RecipesPage({ searchParams }: RecipesPageProps) {
@@ -30,7 +35,7 @@ export default async function RecipesPage({ searchParams }: RecipesPageProps) {
     <main className="docs">
       <div className="hero-copy">
         <p className="eyebrow">Skills</p>
-        <h1>Procedures for coding agents.</h1>
+        <h1>AI agent skills for coding workflows</h1>
         <p className="lede">
           Install procedures into your agent. Reusable prompt patterns live in
           the <a href="/prompts">gallery</a>.

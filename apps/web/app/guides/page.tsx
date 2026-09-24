@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { pageMetadata } from "../../lib/present";
 
 export const metadata: Metadata = pageMetadata(
-  "Guides",
+  "AI App Development Guides: RAG, Tools & Structured Outputs",
   "Build complete AI applications from scratch. Each guide starts from a blank Next.js project and ends on localhost.",
   "/guides",
 );

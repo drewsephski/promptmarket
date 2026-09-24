@@ -3,6 +3,7 @@ import { Bezel } from "../../components/bezel";
 import { CommandBlock } from "../../components/command-block";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/contribute" },
   title: "Contribute",
   description: "Publish a PromptMarket recipe through a GitHub pull request.",
 };

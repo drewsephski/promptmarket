@@ -273,13 +273,13 @@ export async function resolveInitDraft(options: {
     return {
       ok: false,
       error:
-        "Compatibility must list one or more of: cursor, claude-code, codex, github-copilot, generic.",
+        `Compatibility must list one or more of: ${AGENT_COMPATIBILITY.join(", ")}.`,
       issues: [
         {
           code: "compatibility_invalid",
           path: "compatibility",
           message:
-            "Compatibility must list one or more of: cursor, claude-code, codex, github-copilot, generic.",
+            `Compatibility must list one or more of: ${AGENT_COMPATIBILITY.join(", ")}.`,
         },
       ],
     };

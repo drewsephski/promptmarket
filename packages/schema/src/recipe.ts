@@ -6,6 +6,7 @@ export const AGENT_COMPATIBILITY = [
   "cursor",
   "claude-code",
   "codex",
+  "opencode",
   "github-copilot",
   "generic",
 ] as const;

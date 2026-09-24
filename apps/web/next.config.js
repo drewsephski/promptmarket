@@ -7,7 +7,14 @@ const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../.."
 const nextConfig = {
   agentRules: false,
   outputFileTracingRoot: repoRoot,
+  async headers() {
+    return ["/api/:path*", "/mcp"].map((source) => ({
+      source,
+      headers: [{ key: "X-Robots-Tag", value: "noindex" }],
+    }));
+  },
   outputFileTracingIncludes: {
+    "/sitemap.xml": ["../../recipes/**/*", "../../content/**/*"],
     "/": ["../../recipes/**/*", "../../content/**/*"],
     "/docs": ["../../recipes/**/*", "../../content/**/*"],
     "/learn": ["../../content/**/*"],

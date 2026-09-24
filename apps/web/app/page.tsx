@@ -4,13 +4,21 @@ import {
   formatAgentContext,
   loadContentCatalog,
 } from "@promptmarket/content";
-import { CommandBlock } from "../components/command-block";
+import { AgentSetup } from "../components/agent-setup";
+import { RoadmapBento } from "../components/roadmap-bento";
 import { WorkflowResult } from "../components/workflow-result";
 import { workflowView } from "../lib/workflow";
 
+import { StructuredData } from "../components/structured-data";
+import { pageMetadata, SITE_URL } from "../lib/present";
+
+export const metadata = pageMetadata(
+  "AI Engineering Patterns & Coding Agent Context",
+  "Build AI features with reusable prompts, agent skills, and implementation guides for RAG, tool calling, structured outputs, and evaluations.",
+  "/",
+);
+
 const EXAMPLE_QUERY = "Add a RAG knowledge base";
-const CURSOR_SETUP =
-  "pnpm dlx @promptmarket/cli setup cursor --write --with-context7";
 
 const entries = [
   {
@@ -25,8 +33,8 @@ const entries = [
   },
   {
     href: "/prompts",
-    title: "Prompts",
-    text: "Reuse proven patterns.",
+    title: "AI agent prompts",
+    text: "Copy templates for tools, RAG, and structured outputs.",
   },
 ];
 
@@ -45,6 +53,14 @@ export default function Home() {
 
   return (
     <main>
+      <StructuredData
+        data={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "PromptMarket",
+          url: SITE_URL,
+        }}
+      />
       <section className="hero hero-simple">
         <div className="hero-copy">
           <p className="eyebrow">PromptMarket</p>
@@ -68,10 +84,12 @@ export default function Home() {
             </button>
           </form>
           <p className="mcp-line">
-            <a href="/docs#cursor">Install for Cursor</a>
+            <a href="/docs#agents">Install</a>
           </p>
         </div>
       </section>
+
+      <RoadmapBento />
 
       {example ? (
         <section className="band" aria-labelledby="example-heading">
@@ -92,7 +110,7 @@ export default function Home() {
           <p className="eyebrow">Use it where you work</p>
           <h2 id="agent-heading">Works with your coding agent</h2>
         </div>
-        <CommandBlock command={CURSOR_SETUP} label="Copy command" />
+        <AgentSetup />
       </section>
 
       <section className="band" aria-labelledby="entries-heading">

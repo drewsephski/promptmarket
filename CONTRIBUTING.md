@@ -2,6 +2,12 @@
 
 PromptMarket publishes recipes by merging pull requests. There is no account, database, or separate publish API.
 
+## Coding agents
+
+Use any coding agent. [Agent setup](docs/agents.md) documents native MCP configuration for Codex, OpenCode, Cursor, Claude Code, and Copilot, plus CLI access for other agents. The checked-in configs connect to this checkout's local stdio server after building.
+
+Recipe compatibility accepts `cursor`, `claude-code`, `codex`, `opencode`, `github-copilot`, and `generic`. Use `generic` for agent-independent instructions. Do not edit published recipe versions just to add an agent label; publish a new version when metadata changes.
+
 ## Add a recipe
 
 ```bash

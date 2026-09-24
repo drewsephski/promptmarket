@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { FlowDiagram } from "../../../components/flow-diagram";
 import { SkillBody } from "../../../components/skill-body";
 import { RelatedGuides } from "../../../components/related-guides";
+import { StructuredData } from "../../../components/structured-data";
+import { breadcrumbData } from "../../../lib/structured-data";
 import { pageMetadata } from "../../../lib/present";
 
 interface LearnPageProps {
@@ -22,7 +24,7 @@ export async function generateMetadata({
   const { slug } = await params;
   try {
     const topic = loadContentCatalog().getTopic(slug);
-    return pageMetadata(topic.title, topic.summary, topic.href);
+    return pageMetadata(topic.title, topic.summary, topic.href, "article");
   } catch {
     return { title: "Lesson" };
   }
@@ -45,6 +47,12 @@ export default async function LearnTopicPage({ params }: LearnPageProps) {
 
   return (
     <main className="article">
+      <StructuredData
+        data={breadcrumbData([
+          { name: "Learn", path: "/learn" },
+          { name: topic.title, path: topic.href },
+        ])}
+      />
       <header className="page-intro">
         <nav className="crumbs" aria-label="Breadcrumb">
           <a href="/learn">Learn</a>

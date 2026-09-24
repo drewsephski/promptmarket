@@ -15,7 +15,7 @@ const recipe: Recipe = {
     name: "github-pr-review",
     version: "0.1.0",
     author: { name: "PromptMarket" },
-    compatibility: ["cursor", "claude-code", "codex", "generic"],
+    compatibility: ["cursor", "claude-code", "codex", "opencode", "generic"],
     requires: { mcp: ["io.github.github/github-mcp-server"] },
     capabilities: {
       filesystem: "read",
@@ -324,7 +324,7 @@ describe("promptmarket mcp", function promptmarketMcp() {
       version: "0.1.0",
       description: recipe.skill.description,
       author: { name: "PromptMarket" },
-      compatibility: ["cursor", "claude-code", "codex", "generic"],
+      compatibility: ["cursor", "claude-code", "codex", "opencode", "generic"],
       requires: { mcp: ["io.github.github/github-mcp-server"] },
       capabilities: {
         filesystem: "read",

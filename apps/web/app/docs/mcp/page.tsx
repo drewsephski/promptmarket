@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { agentSetups } from "../../../lib/agent-setup";
 import { CommandBlock } from "../../../components/command-block";
 import { HOSTED_MCP_URL, pageMetadata } from "../../../lib/present";
 
@@ -7,14 +8,6 @@ export const metadata: Metadata = pageMetadata(
   "PromptMarket MCP tools for workflow, context, plans, and content.",
   "/docs/mcp",
 );
-
-const cursorConfig = `{
-  "mcpServers": {
-    "promptmarket": {
-      "url": "${HOSTED_MCP_URL}"
-    }
-  }
-}`;
 
 export default function McpDocsPage() {
   return (
@@ -28,8 +21,51 @@ export default function McpDocsPage() {
         </p>
       </div>
       <CommandBlock command={HOSTED_MCP_URL} label="Copy MCP endpoint" />
-      <p className="note">Cursor remote MCP config:</p>
-      <CommandBlock command={cursorConfig} label="Copy Cursor MCP config" />
+      <div className="docs-prose">
+        <p>
+          Connect any client that supports remote MCP over Streamable HTTP. Use
+          the configuration format for your agent; merge the entry into an
+          existing file instead of replacing your other settings.
+        </p>
+      </div>
+      {agentSetups.map((agent) => (
+        <section key={agent.id} id={agent.id} className="docs-prose">
+          <h2>{agent.name}</h2>
+          <p>
+            Project config: <code>{agent.file}</code>
+          </p>
+          <CommandBlock
+            command={agent.config}
+            label={`Copy ${agent.name} MCP config`}
+          />
+          <p>
+            {agent.note} <a href={agent.docs}>Official setup docs</a>
+          </p>
+        </section>
+      ))}
+      <div className="docs-prose">
+        <h2>Other agents</h2>
+        <p>
+          Add a remote HTTP MCP server named <code>promptmarket</code> with the
+          endpoint above, using your client’s settings or config schema. These
+          formats are client-specific; there is no universal MCP config file.
+        </p>
+        <p>
+          If your agent has no remote MCP support, pass it context from the CLI:
+        </p>
+        <CommandBlock
+          command={
+            'pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project . --format agent'
+          }
+          label="Copy agent context command"
+        />
+        <p>
+          The CLI setup also adds workflow instructions to your agent’s project
+          instruction file. Manual MCP configuration only connects the tools.
+          Context7 is optional; use it or official library documentation to
+          verify current syntax.
+        </p>
+      </div>
       <div className="docs-prose">
         <p>
           Primary tools: <code>get_workflow</code>, <code>build_context</code>,{" "}

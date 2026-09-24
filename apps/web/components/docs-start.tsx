@@ -2,18 +2,16 @@
 
 import { useState } from "react";
 import { CommandBlock } from "./command-block";
+import { AgentSetup } from "./agent-setup";
 import { HOSTED_MCP_URL } from "../lib/present";
 import { useTabKeyboard } from "../lib/use-tab-keyboard";
-
-const CURSOR_COMMAND =
-  "pnpm dlx @promptmarket/cli setup cursor --write --with-context7";
 
 const CLI_COMMANDS = `pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project . --format agent
 pnpm dlx @promptmarket/cli plan "add RAG over our documentation" --project .
 pnpm dlx @promptmarket/cli feature status`;
 
 const choices = [
-  { id: "cursor", label: "Cursor", note: "Recommended" },
+  { id: "agents", label: "Coding agent", note: "" },
   { id: "cli", label: "CLI", note: "" },
   { id: "mcp", label: "MCP", note: "" },
   { id: "web", label: "Web", note: "" },
@@ -22,7 +20,7 @@ const choices = [
 type ChoiceId = (typeof choices)[number]["id"];
 
 export function DocsStart() {
-  const [choice, setChoice] = useState<ChoiceId>("cursor");
+  const [choice, setChoice] = useState<ChoiceId>("agents");
 
   function handleChoice(id: ChoiceId) {
     setChoice(id);
@@ -43,7 +41,7 @@ export function DocsStart() {
   return (
     <section
       className="docs-start"
-      id="cursor"
+      id="agents"
       aria-label="How to use PromptMarket"
     >
       <div
@@ -79,16 +77,15 @@ export function DocsStart() {
         role="tabpanel"
         aria-labelledby={`docs-${choice}`}
       >
-        {choice === "cursor" ? (
+        {choice === "agents" ? (
           <>
-            <h2>Cursor</h2>
-            <p>Install PromptMarket into the current project.</p>
-            <CommandBlock command={CURSOR_COMMAND} label="Copy Cursor setup" />
-            <ul className="docs-checks">
-              <li>PromptMarket MCP</li>
-              <li>Project workflow rule</li>
-              <li>Optional Context7 setup</li>
-            </ul>
+            <span id="cursor" />
+            <h2>Your coding agent</h2>
+            <p>
+              Use PromptMarket in Codex, OpenCode, Cursor, Claude Code, or
+              Copilot.
+            </p>
+            <AgentSetup />
           </>
         ) : null}
         {choice === "cli" ? (

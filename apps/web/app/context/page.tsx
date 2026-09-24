@@ -8,11 +8,10 @@ import type { Metadata } from "next";
 import { ContextForm } from "../../components/context-form";
 import { WorkflowResult } from "../../components/workflow-result";
 import {
-  contextSearchParams,
   projectFromFilters,
   type ContextFilters,
 } from "../../lib/context-query";
-import { pageMetadata, searchQuery } from "../../lib/present";
+import { searchPageMetadata, searchQuery } from "../../lib/present";
 import { workflowView } from "../../lib/workflow";
 
 interface ContextPageProps {
@@ -44,10 +43,11 @@ export async function generateMetadata({
   const params = await searchParams;
   const query = searchQuery(params.q).trim();
   const filters = filtersFrom(params);
-  return pageMetadata(
+  return searchPageMetadata(
     query ? `Context · ${query}` : "Context",
     "Describe an AI feature. PromptMarket picks the pattern, plan, docs, and checks.",
-    contextSearchParams(query, filters),
+    "/context",
+    Boolean(query || Object.values(filters).some(Boolean)),
   );
 }
 
