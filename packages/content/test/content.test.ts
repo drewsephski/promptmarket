@@ -412,7 +412,7 @@ Hello {{input}}
       context.guides[0]?.sections.map(function titleOf(section) {
         return section.title;
       }),
-    ).toContain("Debug a bad answer");
+    ).toEqual(expect.arrayContaining(["Discard weak matches"]));
   });
 
   test("assembles tool-calling context for the Convex guide", function assemblesTools() {

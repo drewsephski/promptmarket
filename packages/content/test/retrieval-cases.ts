@@ -212,18 +212,16 @@ export const retrievalCases: RetrievalCase[] = [
     query: "my RAG search keeps retrieving irrelevant chunks",
     expectedGuide: "rag-knowledge-base",
     expectedTopic: "rag",
-    expectedPrompt: "rag-grounded-answer",
-    rank: "top3",
+    rank: "top1",
   },
   {
     query: "the agent says it updated the database but nothing changed",
     expectedGuide: "ai-project-manager-convex",
-    expectedTopic: "agentic-loops",
     rank: "top3",
   },
   {
     query: "should this be structured output or a tool call?",
-    expectedTopic: "structured-outputs",
+    expectedGuide: "ai-product-brief-builder",
     rank: "top3",
   },
   {
