@@ -1447,6 +1447,27 @@ textarea.control {
   margin: 0 0 1.5rem;
 }
 
+.context-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.context-filters {
+  gap: 1.15rem;
+}
+
+.context-filter-row {
+  display: grid;
+  gap: 0.85rem 0.9rem;
+}
+
+.context-filters > .pill {
+  justify-self: start;
+  width: auto;
+}
+
 .filter-field {
   display: grid;
   gap: 0.35rem;
@@ -1578,6 +1599,15 @@ textarea.control {
   .filters {
     grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(8rem, 0.7fr)) auto;
     align-items: end;
+  }
+
+  .filters.context-filters {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .context-filter-row {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 

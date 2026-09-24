@@ -42,10 +42,33 @@ export default function DocsPage() {
       </Bezel>
 
       <Bezel coreClassName="panel">
+        <h2 id="cursor">Cursor</h2>
+        <p>
+          One command adds the hosted MCP server and an Apply Intelligently
+          project rule. Cursor then consults PromptMarket before implementing
+          an AI feature.
+        </p>
+        <CommandBlock
+          command={`pnpm dlx @promptmarket/cli setup cursor
+pnpm dlx @promptmarket/cli setup cursor --write
+pnpm dlx @promptmarket/cli setup cursor --check`}
+          label="Copy Cursor setup"
+        />
+        <p className="note">
+          <code>--write</code> merges <code>promptmarket</code> into{" "}
+          <code>.cursor/mcp.json</code> and writes{" "}
+          <code>.cursor/rules/promptmarket.mdc</code>. Other MCP servers stay
+          in place. <code>--dry-run</code> is the default.{" "}
+          <code>--remove</code> deletes only the PromptMarket entries.
+        </p>
+      </Bezel>
+
+      <Bezel coreClassName="panel">
         <h2>MCP</h2>
         <p>
           Point a client at the hosted endpoint. The tools search and return
-          content. They do not rank with a model.
+          content. They do not rank with a model. You can also resolve a
+          feature in the browser at <a href="/context">Context</a>.
         </p>
         <CommandBlock command={HOSTED_MCP_URL} label="Copy MCP endpoint" />
         <p className="note">Cursor remote MCP config:</p>
@@ -93,9 +116,11 @@ pnpm dlx @promptmarket/cli guide ai-product-brief-builder`}
           prompt body, or a skill when the name is not a prompt.{" "}
           <code>learn</code> prints a short lesson and its URL.{" "}
           <code>guides</code> lists tutorials, and <code>guide</code> prints one
-          guide's outline and URL. Commands read the hosted catalog at{" "}
-          <code>/api/content/v1</code>, then a local cache, then the bundled
-          snapshot. <code>--offline</code> uses the snapshot directly.{" "}
+          guide's outline and URL.           Commands read the hosted catalog at{" "}
+          <code>/api/content/v1</code>. A cache younger than 15 minutes is used
+          immediately; <code>--refresh</code> checks again. If the network
+          fails, the CLI uses the cache, then the bundled snapshot.{" "}
+          <code>--offline</code> uses the snapshot directly.{" "}
           <code>build_context</code> accepts the same project fingerprint when
           an agent already knows the stack.
         </p>

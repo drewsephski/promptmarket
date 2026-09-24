@@ -6,6 +6,7 @@ const links = [
   { href: "/learn", label: "Learn" },
   { href: "/prompts", label: "Prompts" },
   { href: "/guides", label: "Guides" },
+  { href: "/context", label: "Context" },
   { href: "/docs", label: "Docs" },
 ];
 
@@ -104,6 +105,7 @@ export function SiteFooter() {
         <a href="/learn">Learn</a>
         <a href="/prompts">Prompts</a>
         <a href="/guides">Guides</a>
+        <a href="/context">Context</a>
         <a href="/recipes">Skills</a>
         <a href="/docs">Docs</a>
         <a href="https://github.com/drewsephski/promptmarket">GitHub</a>

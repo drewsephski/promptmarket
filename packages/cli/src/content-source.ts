@@ -13,7 +13,7 @@ import {
   type PromptDocument,
 } from "@promptmarket/content";
 
-export const CLI_VERSION = "0.4.0";
+export const CLI_VERSION = "0.5.0";
 export const DEFAULT_CONTENT_API = "https://promptmarket.sh/api/content/v1";
 
 export type ContentSourceName = "hosted" | "cache" | "offline" | "directory";
@@ -33,17 +33,22 @@ type CatalogPayload = {
   guides: Guide[];
 };
 
+const FRESH_MS = 15 * 60 * 1000;
+
 type CacheEntry = {
   etag: string;
   body: string;
+  fetchedAt: number;
 };
 
 export type ContentResolveOptions = {
   offline?: boolean;
+  refresh?: boolean;
   contentDir?: string;
   contentApi?: string;
   cacheDir?: string;
   fetch?: typeof fetch;
+  now?: () => number;
 };
 
 function defaultCacheDir(): string {
@@ -90,7 +95,11 @@ async function readCache(file: string): Promise<CacheEntry | undefined> {
     if (typeof entry.etag !== "string" || typeof entry.body !== "string") {
       return undefined;
     }
-    return entry;
+    return {
+      etag: entry.etag,
+      body: entry.body,
+      fetchedAt: typeof entry.fetchedAt === "number" ? entry.fetchedAt : 0,
+    };
   } catch {
     return undefined;
   }
@@ -147,6 +156,20 @@ export async function resolveContent(
   const cacheDir = options.cacheDir ?? defaultCacheDir();
   const file = cacheFile(cacheDir, api);
   const cached = await readCache(file);
+  const now = options.now?.() ?? Date.now();
+  if (
+    cached &&
+    !options.refresh &&
+    cached.fetchedAt > 0 &&
+    now - cached.fetchedAt < FRESH_MS
+  ) {
+    try {
+      const resolved = catalogFromPayload(parsePayload(cached.body));
+      return { ...resolved, source: "cache" };
+    } catch {
+      // A fresh file that cannot be parsed falls through to revalidation.
+    }
+  }
   const fetchImpl = options.fetch ?? fetch;
   try {
     const response = await fetchImpl(`${api}/catalog`, {
@@ -154,6 +177,12 @@ export async function resolveContent(
       signal: AbortSignal.timeout(4000),
     });
     if (response.status === 304 && cached) {
+      await mkdir(cacheDir, { recursive: true });
+      await writeFile(
+        file,
+        JSON.stringify({ ...cached, fetchedAt: now }),
+        "utf8",
+      );
       const resolved = catalogFromPayload(parsePayload(cached.body));
       return { ...resolved, source: "cache" };
     }
@@ -167,7 +196,7 @@ export async function resolveContent(
     await mkdir(cacheDir, { recursive: true });
     await writeFile(
       file,
-      JSON.stringify({ etag: version, body }),
+      JSON.stringify({ etag: version, body, fetchedAt: now }),
       "utf8",
     );
     const resolved = catalogFromPayload({ ...payload, contentVersion: version });

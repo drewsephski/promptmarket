@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/learn",
     "/prompts",
     "/guides",
+    "/context",
     "/docs",
     "/recipes",
     ...catalog.topics.map(function topicPath(topic) {

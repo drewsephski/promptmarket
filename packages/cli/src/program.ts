@@ -4,15 +4,22 @@ import {
   ContentNotFoundError,
   detectProject,
   doctorGuides,
+  formatAgentContext,
+  formatCompatibility,
+  formatContextText,
   otherProjectLabels,
-  type BuiltContext,
-  type CompatibilityItem,
   type ContentCatalog,
   type ContextDetail,
   type ProjectContext,
-  type ProjectNote,
   type PromptDocument,
 } from "@promptmarket/content";
+import {
+  applyCursorSetup,
+  cursorAgentInstalled,
+  planCursorSetup,
+  renderSetupReport,
+  type SetupMode,
+} from "./cursor-setup.js";
 import { CLI_VERSION, resolveContent } from "./content-source.js";
 import {
   findOutdatedRecipes,
@@ -141,239 +148,6 @@ function formatProject(project: ProjectContext): string {
   return lines.join("\n");
 }
 
-function formatNotes(notes: ProjectNote[]): string[] {
-  const lines: string[] = [];
-  const detected = notes.filter(function keep(note) {
-    return note.status === "detected";
-  });
-  const unseen = notes.filter(function keep(note) {
-    return note.status === "not-detected";
-  });
-  const required = notes.filter(function keep(note) {
-    return note.status === "required";
-  });
-  if (detected.length > 0) {
-    lines.push("Detected in project");
-    for (const note of detected) {
-      lines.push(`✓ ${note.label}`);
-    }
-  }
-  if (unseen.length > 0) {
-    lines.push("Not detected");
-    for (const note of unseen) {
-      lines.push(`○ ${note.label}`);
-    }
-  }
-  if (required.length > 0) {
-    lines.push("Required by guide");
-    for (const note of required) {
-      lines.push(`○ ${note.label}`);
-    }
-  }
-  return lines;
-}
-
-function versionAtPrecision(detected: string, tested: string): string {
-  const parts = detected.split(".");
-  const width = tested.split(".").filter(function present(part) {
-    return part.length > 0;
-  }).length;
-  return parts.slice(0, width).join(".");
-}
-
-function formatCompatibility(items: CompatibilityItem[]): string[] {
-  return items.map(function line(item) {
-    if (item.status === "match") {
-      return `✓ ${item.label} ${item.tested}`;
-    }
-    if (item.status === "not-detected") {
-      return `○ ${item.label} not detected; guide verified with ${item.tested}`;
-    }
-    const seen = item.detected
-      ? `${item.label} ${versionAtPrecision(item.detected, item.tested)}`
-      : item.label;
-    return `! ${seen} → guide verified with ${item.label} ${item.tested}`;
-  });
-}
-
-function formatContext(context: BuiltContext): string {
-  const lines: string[] = [];
-  if (context.project) {
-    lines.push("PROJECT");
-    for (const label of [
-      context.project.framework,
-      context.project.language,
-      context.project.ai?.sdk,
-      context.project.ai?.provider,
-      ...(context.project.database ?? []),
-      ...(context.project.orm ?? []),
-    ]) {
-      if (label) {
-        lines.push(label);
-      }
-    }
-    lines.push("");
-  }
-  if (context.projectNotes && context.projectNotes.length > 0) {
-    lines.push("PROJECT NOTES");
-    lines.push(...formatNotes(context.projectNotes), "");
-  }
-  if (context.topics.length > 0) {
-    lines.push("CONCEPTS");
-    const [primary, ...related] = context.topics;
-    if (primary) {
-      lines.push(primary.title, primary.definition);
-      if (primary.mentalModel) {
-        lines.push(primary.mentalModel);
-      }
-      if (primary.commonMistake) {
-        lines.push(primary.commonMistake);
-      }
-      lines.push("");
-    }
-    if (related.length > 0) {
-      lines.push("RELATED CONCEPTS");
-      for (const topic of related) {
-        lines.push(topic.title);
-      }
-      lines.push("");
-    }
-  }
-  if (context.prompts.length > 0) {
-    lines.push("PROMPTS");
-    const [primary, ...related] = context.prompts;
-    if (primary) {
-      lines.push(
-        primary.name,
-        primary.title,
-        primary.variables.length > 0
-          ? `Variables: ${primary.variables.join(", ")}`
-          : "Variables: none",
-        "",
-        primary.body ?? "",
-        "",
-      );
-    }
-    if (related.length > 0) {
-      lines.push("RELATED");
-      for (const prompt of related) {
-        lines.push(prompt.name);
-      }
-      lines.push("");
-    }
-  }
-  if (context.guides.length > 0) {
-    lines.push("GUIDES");
-    const [primary, ...related] = context.guides;
-    if (primary) {
-      lines.push(primary.title, primary.url);
-      if (primary.architecture.length > 0) {
-        lines.push(primary.architecture.join(" → "));
-      }
-      for (const section of primary.sections) {
-        lines.push(section.title);
-      }
-      lines.push("");
-    }
-    if (related.length > 0) {
-      lines.push("RELATED GUIDES");
-      for (const guide of related) {
-        lines.push(guide.title);
-      }
-      lines.push("");
-    }
-  }
-  if (context.compatibility && context.compatibility.length > 0) {
-    lines.push("COMPATIBILITY");
-    lines.push(...formatCompatibility(context.compatibility), "");
-  }
-  if (context.skills.length > 0) {
-    lines.push("SKILLS");
-    for (const skill of context.skills) {
-      lines.push(`${skill.name}\t${skill.version}`, skill.description, "");
-    }
-  }
-  if (context.suggestedNextSteps.length > 0) {
-    lines.push("NEXT");
-    for (const step of context.suggestedNextSteps) {
-      lines.push(`${step.title}: ${step.reason}`);
-    }
-    lines.push("");
-  }
-  return `${lines.join("\n")}\n`;
-}
-
-function formatAgent(context: BuiltContext): string {
-  const lines = ["# PromptMarket Implementation Context", "", "## Goal", context.query, ""];
-  if (context.project) {
-    lines.push("## Detected project");
-    for (const label of [
-      context.project.framework,
-      context.project.language,
-      context.project.ai?.sdk
-        ? withVersion(context.project.ai.sdk, context.project.versions.ai)
-        : undefined,
-      context.project.ai?.provider,
-      ...(context.project.database ?? []),
-      ...(context.project.orm ?? []),
-    ]) {
-      if (label) {
-        lines.push(`- ${label}`);
-      }
-    }
-    lines.push("");
-  }
-  const topic = context.topics[0];
-  if (topic) {
-    lines.push("## Recommended pattern", topic.title, "", topic.definition, "");
-    if (topic.mentalModel) {
-      lines.push(topic.mentalModel, "");
-    }
-  }
-  const guide = context.guides[0];
-  if (guide) {
-    lines.push("## Recommended guide", guide.title, "");
-    if (guide.sections.length > 0) {
-      lines.push("Relevant sections:");
-      for (const section of guide.sections) {
-        lines.push(`- ${section.title}`);
-      }
-      lines.push("");
-    }
-  }
-  const prompt = context.prompts[0];
-  if (prompt) {
-    lines.push("## Prompt", prompt.title, "", prompt.body ?? prompt.description, "");
-  }
-  if (context.compatibility && context.compatibility.length > 0) {
-    lines.push("## Compatibility", ...formatCompatibility(context.compatibility), "");
-  }
-  const constraints = [
-    ...(topic?.commonMistake ? [topic.commonMistake] : []),
-    ...(prompt?.commonMistakes ?? []),
-  ].filter(function present(item) {
-    return item.trim().length > 0;
-  });
-  if (constraints.length > 0) {
-    lines.push("## Important constraints");
-    for (const constraint of constraints.slice(0, 4)) {
-      lines.push(`- ${constraint.replaceAll("\n", " ")}`);
-    }
-    lines.push("");
-  }
-  const references = [topic?.url, prompt?.url, guide?.url].filter(function present(url): url is string {
-    return Boolean(url);
-  });
-  if (references.length > 0) {
-    lines.push("## References");
-    for (const url of references) {
-      lines.push(`- ${url}`);
-    }
-    lines.push("");
-  }
-  return `${lines.join("\n")}\n`;
-}
-
 function formatDoctor(
   project: ProjectContext,
   guides: ReturnType<typeof doctorGuides>,
@@ -431,6 +205,7 @@ const SITE_ORIGIN = "https://promptmarket.sh";
 
 type ContentFlags = {
   offline?: boolean;
+  refresh?: boolean;
   contentApi?: string;
   content?: string;
 };
@@ -441,10 +216,12 @@ async function openContent(
 ): Promise<{ catalog: ContentCatalog; source: string; version: string }> {
   return resolveContent({
     offline: flags.offline,
+    refresh: flags.refresh,
     contentDir: flags.content,
     contentApi: flags.contentApi,
     cacheDir: deps.contentCacheDir,
     fetch: deps.contentFetch,
+    now: deps.contentNow,
   });
 }
 
@@ -494,6 +271,7 @@ export function createProgram(
     .option("--registry <url>", "Registry API base URL")
     .option("--content <dir>", "Read lessons and prompts from a directory")
     .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
     .option("--content-api <url>", "Content API base URL")
     .action(async function searchAction(
       query: string,
@@ -503,6 +281,7 @@ export function createProgram(
         registry?: string;
         content?: string;
         offline?: boolean;
+        refresh?: boolean;
         contentApi?: string;
       },
     ) {
@@ -603,6 +382,7 @@ export function createProgram(
       "Read lessons, prompts, and guides from a directory",
     )
     .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
     .option("--content-api <url>", "Content API base URL")
     .action(async function contextAction(
       query: string,
@@ -615,6 +395,7 @@ export function createProgram(
         registry?: string;
         content?: string;
         offline?: boolean;
+        refresh?: boolean;
         contentApi?: string;
         project?: string;
       },
@@ -660,7 +441,11 @@ export function createProgram(
           io.stdout(json({ ok: true, ...context }));
           return;
         }
-        io.stdout(options.format === "agent" ? formatAgent(context) : formatContext(context));
+        io.stdout(
+          options.format === "agent"
+            ? formatAgentContext(context)
+            : formatContextText(context),
+        );
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
       }
@@ -694,6 +479,60 @@ export function createProgram(
         io.stdout(formatDoctor(project, guides));
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  const setup = program
+    .command("setup")
+    .description("Install PromptMarket into a coding agent");
+
+  setup
+    .command("cursor")
+    .description("Add the PromptMarket MCP server and project rule for Cursor")
+    .option("--write", "Write .cursor/mcp.json and .cursor/rules/promptmarket.mdc")
+    .option("--dry-run", "Print the changes without writing files")
+    .option("--remove", "Remove the PromptMarket MCP server and project rule")
+    .option("--check", "Report whether Cursor is configured for PromptMarket")
+    .option("--dir <dir>", "Project directory", ".")
+    .action(async function setupCursorAction(options: {
+      write?: boolean;
+      dryRun?: boolean;
+      remove?: boolean;
+      check?: boolean;
+      dir: string;
+    }) {
+      const selected = [options.write, options.dryRun, options.remove, options.check].filter(
+        Boolean,
+      ).length;
+      if (selected > 1) {
+        writeFailure(
+          io,
+          state,
+          false,
+          new Error("Use only one of --write, --dry-run, --remove, or --check"),
+        );
+        return;
+      }
+      const mode: SetupMode = options.write
+        ? "write"
+        : options.remove
+          ? "remove"
+          : options.check
+            ? "check"
+            : "dry-run";
+      try {
+        const agentHint =
+          mode === "check" ? (deps.cursorAgent ?? cursorAgentInstalled()) : false;
+        const report = await planCursorSetup(options.dir, mode, agentHint);
+        if (mode === "write" || mode === "remove") {
+          await applyCursorSetup(options.dir, mode);
+        }
+        io.stdout(renderSetupReport(report));
+        if (mode === "check" && !report.ready) {
+          state.exitCode = 1;
+        }
+      } catch (error) {
+        writeFailure(io, state, false, error);
       }
     });
 

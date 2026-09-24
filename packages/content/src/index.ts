@@ -25,6 +25,12 @@ export {
   type ContextTopic,
 } from "./context.js";
 export { handleContentRequest } from "./content-http.js";
+export {
+  formatAgentContext,
+  formatCompatibility,
+  formatContextText,
+  formatNotes,
+} from "./format.js";
 export { contentMeta, contentVersionOf, type ContentMeta } from "./meta.js";
 export {
   detectProject,

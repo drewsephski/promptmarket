@@ -772,7 +772,7 @@ describe("promptmarket cli", function promptmarketCli() {
     );
 
     expect(exitCode).toBe(0);
-    expect(io.out()).toContain("PromptMarket CLI       0.4.0");
+    expect(io.out()).toContain("PromptMarket CLI       0.5.0");
     expect(io.out()).toContain("Content source         offline");
     expect(io.out()).toContain("Offline snapshot       included");
   });
@@ -825,7 +825,6 @@ describe("promptmarket cli", function promptmarketCli() {
       cachedIo,
       { contentCacheDir: cacheDir },
     );
-    server.close();
     const failedIo = captureIo();
     const failed = await run(
       [
@@ -849,9 +848,142 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(first).toBe(0);
     expect(JSON.parse(io.out()).topic.slug).toBe("rag");
     expect(second).toBe(0);
-    expect(requests).toBeGreaterThan(1);
+    expect(requests).toBe(1);
     expect(failed).toBe(0);
     expect(JSON.parse(failedIo.out()).topic.slug).toBe("rag");
+
+    const staleIo = captureIo();
+    const stale = await run(
+      ["node", "promptmarket", "learn", "rag", "--json", "--content-api", api],
+      staleIo,
+      {
+        contentCacheDir: cacheDir,
+        contentNow: function later() {
+          return Date.now() + 16 * 60 * 1000;
+        },
+      },
+    );
+    expect(stale).toBe(0);
+    expect(requests).toBe(2);
+    server.close();
+
+    const refreshIo = captureIo();
+    const refreshed = await run(
+      [
+        "node",
+        "promptmarket",
+        "search",
+        "rag",
+        "--json",
+        "--offline",
+        "--refresh",
+        "--recipes",
+        recipesDir,
+      ],
+      refreshIo,
+    );
+    expect(refreshed).toBe(0);
+    expect(JSON.parse(refreshIo.out()).ok).toBe(true);
     await mkdir(cacheDir, { recursive: true });
+  });
+
+  test("setup cursor merges mcp.json and writes the rule", async function setupsCursor() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "promptmarket-cursor-"));
+    tempDirs.push(root);
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ dependencies: { next: "^16.0.0", ai: "^7.0.0" } }),
+    );
+    await mkdir(path.join(root, ".cursor"), { recursive: true });
+    const mcpPath = path.join(root, ".cursor", "mcp.json");
+    await writeFile(
+      mcpPath,
+      `${JSON.stringify({ mcpServers: { other: { url: "https://example.com/mcp" } } }, null, 2)}\n`,
+    );
+
+    const preview = captureIo();
+    const previewCode = await run(
+      ["node", "promptmarket", "setup", "cursor", "--dir", root],
+      preview,
+      { cursorAgent: false },
+    );
+    expect(previewCode).toBe(0);
+    expect(preview.out()).toContain("Dry run");
+    expect(await readFile(mcpPath, "utf8")).not.toContain("promptmarket");
+
+    const writeIo = captureIo();
+    const writeCode = await run(
+      ["node", "promptmarket", "setup", "cursor", "--write", "--dir", root],
+      writeIo,
+    );
+    expect(writeCode).toBe(0);
+    expect(writeIo.out()).toContain("Applied.");
+    const mcp = JSON.parse(await readFile(mcpPath, "utf8")) as {
+      mcpServers: Record<string, { url: string }>;
+    };
+    expect(mcp.mcpServers.other?.url).toBe("https://example.com/mcp");
+    expect(mcp.mcpServers.promptmarket?.url).toBe("https://promptmarket.sh/mcp");
+    const rule = await readFile(
+      path.join(root, ".cursor", "rules", "promptmarket.mdc"),
+      "utf8",
+    );
+    expect(rule).toContain("alwaysApply: false");
+    expect(rule).toContain("build_context");
+
+    const again = captureIo();
+    const againCode = await run(
+      ["node", "promptmarket", "setup", "cursor", "--write", "--dir", root],
+      again,
+    );
+    expect(againCode).toBe(0);
+    expect(again.out()).toContain("Already installed.");
+
+    const check = captureIo();
+    const checkCode = await run(
+      ["node", "promptmarket", "setup", "cursor", "--check", "--dir", root],
+      check,
+      { cursorAgent: true },
+    );
+    expect(checkCode).toBe(0);
+    expect(check.out()).toContain("✓ .cursor/mcp.json contains PromptMarket");
+    expect(check.out()).toContain("✓ Next.js 16");
+    expect(check.out()).toContain("✓ AI SDK 7");
+    expect(check.out()).toContain("agent mcp list-tools promptmarket");
+
+    const broken = `${mcpPath}.broken`;
+    await writeFile(mcpPath, "{");
+    const bad = captureIo();
+    const badCode = await run(
+      ["node", "promptmarket", "setup", "cursor", "--write", "--dir", root],
+      bad,
+    );
+    expect(badCode).toBe(1);
+    expect(bad.err()).toContain("Could not parse");
+    expect(await readFile(mcpPath, "utf8")).toBe("{");
+    await rm(broken, { force: true });
+
+    await writeFile(
+      mcpPath,
+      `${JSON.stringify({
+        mcpServers: {
+          other: { url: "https://example.com/mcp" },
+          promptmarket: { url: "https://promptmarket.sh/mcp" },
+        },
+      })}\n`,
+    );
+    const removeIo = captureIo();
+    const removeCode = await run(
+      ["node", "promptmarket", "setup", "cursor", "--remove", "--dir", root],
+      removeIo,
+    );
+    expect(removeCode).toBe(0);
+    const removed = JSON.parse(await readFile(mcpPath, "utf8")) as {
+      mcpServers: Record<string, { url: string }>;
+    };
+    expect(removed.mcpServers.promptmarket).toBeUndefined();
+    expect(removed.mcpServers.other?.url).toBe("https://example.com/mcp");
+    await expect(
+      stat(path.join(root, ".cursor", "rules", "promptmarket.mdc")),
+    ).rejects.toThrow();
   });
 });

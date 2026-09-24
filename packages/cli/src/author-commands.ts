@@ -28,6 +28,8 @@ export type CliDeps = {
   runner?: ProcessRunner;
   contentFetch?: typeof fetch;
   contentCacheDir?: string;
+  contentNow?: () => number;
+  cursorAgent?: boolean;
 };
 
 type Io = {

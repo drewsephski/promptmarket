@@ -1,6 +1,6 @@
 {
   "name": "@promptmarket/cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Search the PromptMarket catalog, assemble context, and install skills.",
   "license": "MIT",
   "type": "module",
