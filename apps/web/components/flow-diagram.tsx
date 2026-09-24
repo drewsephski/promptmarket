@@ -67,9 +67,7 @@ export function FlowDiagram({ id }: { id: DiagramId }) {
           );
         })}
       </ol>
-      {flow.loop ? (
-        <p className="flow-loop">{flow.loop}</p>
-      ) : null}
+      {flow.loop ? <p className="flow-loop">{flow.loop}</p> : null}
     </figure>
   );
 }

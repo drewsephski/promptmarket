@@ -69,6 +69,59 @@ describe("promptmarket cli", function promptmarketCli() {
     expect(payload.recipes[0]?.description).toContain("pull request");
   });
 
+  test("search groups guides, lessons, prompts, and skills", async function searchesCatalog() {
+    const io = captureIo();
+    const exitCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "search",
+        "tool calling convex",
+        "--recipes",
+        recipesDir,
+      ],
+      io,
+    );
+
+    expect(exitCode).toBe(0);
+    const output = io.out();
+    expect(output.indexOf("GUIDES")).toBeLessThan(output.indexOf("LESSONS"));
+    expect(output.indexOf("LESSONS")).toBeLessThan(output.indexOf("PROMPTS"));
+    expect(output).toContain("ai-project-manager-convex");
+    expect(output).toContain("tool-calling");
+    expect(output).toContain("safe-tool-calling-system");
+    expect(output).toContain("tool-selection-router");
+  });
+
+  test("context --json assembles a feature", async function buildsContext() {
+    const io = captureIo();
+    const exitCode = await run(
+      [
+        "node",
+        "promptmarket",
+        "context",
+        "I'm building a RAG feature in Next.js with Neon",
+        "--json",
+        "--recipes",
+        recipesDir,
+      ],
+      io,
+    );
+    const payload = JSON.parse(io.out()) as {
+      ok: boolean;
+      topics: Array<{ slug: string }>;
+      prompts: Array<{ name: string; body: string }>;
+      guides: Array<{ slug: string }>;
+    };
+
+    expect(exitCode).toBe(0);
+    expect(payload.ok).toBe(true);
+    expect(payload.topics[0]?.slug).toBe("rag");
+    expect(payload.prompts[0]?.name).toBe("rag-grounded-answer");
+    expect(payload.prompts[0]?.body.length).toBeGreaterThan(0);
+    expect(payload.guides[0]?.slug).toBe("rag-knowledge-base");
+  });
+
   test("info --json prints the recipe", async function printsInfo() {
     const io = captureIo();
     const exitCode = await run(
@@ -521,7 +574,11 @@ describe("promptmarket cli", function promptmarketCli() {
       guides.guides.map(function slugOf(item) {
         return item.slug;
       }),
-    ).toEqual(["ai-product-brief-builder", "rag-knowledge-base"]);
+    ).toEqual([
+      "ai-product-brief-builder",
+      "rag-knowledge-base",
+      "ai-project-manager-convex",
+    ]);
     expect(guideExit).toBe(0);
     expect(guide.guide.slug).toBe("ai-product-brief-builder");
     expect(guide.guide.url).toBe(

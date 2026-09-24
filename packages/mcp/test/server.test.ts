@@ -163,6 +163,11 @@ describe("promptmarket mcp", function promptmarketMcp() {
 
     expect(tools).toEqual([
       {
+        name: "build_context",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
         name: "search_prompts",
         readOnlyHint: true,
         destructiveHint: false,
@@ -438,14 +443,13 @@ describe("promptmarket mcp", function promptmarketMcp() {
     })) as ToolResult;
 
     expect(searched.isError).toBeFalsy();
-    expect(searched.structuredContent).toMatchObject({
-      guides: [
-        {
-          slug: "ai-product-brief-builder",
-          difficulty: "beginner",
-          url: "https://promptmarket.sh/guides/ai-product-brief-builder",
-        },
-      ],
+    const found = searched.structuredContent as {
+      guides: Array<{ slug: string; difficulty: string; url: string }>;
+    };
+    expect(found.guides[0]).toMatchObject({
+      slug: "ai-product-brief-builder",
+      difficulty: "beginner",
+      url: "https://promptmarket.sh/guides/ai-product-brief-builder",
     });
     const guide = loaded.structuredContent as {
       title: string;
@@ -494,5 +498,78 @@ describe("promptmarket mcp", function promptmarketMcp() {
     expect(markdown).toContain("cosineDistance");
     expect(markdown).toContain("embedMany");
     expect(JSON.stringify(loaded.structuredContent)).not.toContain("<!DOCTYPE");
+  });
+
+  test("search_guides and get_guide return the Convex project manager", async function loadsProjectManagerGuide() {
+    const client = await connect(registryWith([]));
+    const byConvex = (await client.callTool({
+      name: "search_guides",
+      arguments: { query: "Convex" },
+    })) as ToolResult;
+    const byToolCalling = (await client.callTool({
+      name: "search_guides",
+      arguments: { query: "tool calling" },
+    })) as ToolResult;
+    const loaded = (await client.callTool({
+      name: "get_guide",
+      arguments: { slug: "ai-project-manager-convex" },
+    })) as ToolResult;
+
+    expect(byConvex.isError).toBeFalsy();
+    const convexGuides = byConvex.structuredContent as {
+      guides: Array<{ slug: string }>;
+    };
+    expect(convexGuides.guides[0]?.slug).toBe("ai-project-manager-convex");
+    const toolGuides = byToolCalling.structuredContent as {
+      guides: Array<{ slug: string }>;
+    };
+    expect(
+      toolGuides.guides.some(function matches(guide) {
+        return guide.slug === "ai-project-manager-convex";
+      }),
+    ).toBe(true);
+    const guide = loaded.structuredContent as {
+      title: string;
+      order?: number;
+      verifiedAt?: string;
+      sections: Array<{ markdown: string }>;
+    };
+    const markdown = guide.sections
+      .map(function textOf(section) {
+        return section.markdown;
+      })
+      .join("\n");
+    expect(guide.title).toContain("Project Manager");
+    expect(guide.verifiedAt).toBe("2026-09-23");
+    expect(guide.sections.length).toBeGreaterThan(10);
+    expect(markdown).toContain("fetchMutation");
+    expect(markdown).toContain("isStepCount");
+    expect(JSON.stringify(loaded.structuredContent)).not.toContain("<!DOCTYPE");
+  });
+
+  test("build_context returns the RAG lesson, prompt, and guide", async function buildsContext() {
+    const client = await connect(registryWith([recipe]));
+    const loaded = (await client.callTool({
+      name: "build_context",
+      arguments: {
+        query: "I'm building a RAG feature in Next.js with Neon",
+        detail: "compact",
+      },
+    })) as ToolResult;
+
+    expect(loaded.isError).toBeFalsy();
+    const context = loaded.structuredContent as {
+      topics: Array<{ slug: string; definition: string }>;
+      prompts: Array<{ name: string; body: string }>;
+      guides: Array<{ slug: string; url: string }>;
+      skills: Array<{ name: string }>;
+    };
+    expect(context.topics[0]?.slug).toBe("rag");
+    expect(context.topics[0]?.definition.length).toBeGreaterThan(0);
+    expect(context.prompts[0]?.name).toBe("rag-grounded-answer");
+    expect(context.prompts[0]?.body.length).toBeGreaterThan(0);
+    expect(context.guides[0]?.slug).toBe("rag-knowledge-base");
+    expect(context.guides[0]?.url).toContain("/guides/rag-knowledge-base");
+    expect(context.skills).toEqual([]);
   });
 });

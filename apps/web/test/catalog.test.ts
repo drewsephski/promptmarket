@@ -122,13 +122,19 @@ describe("catalog presentation", function catalogPresentation() {
       expect.arrayContaining([
         "ai-product-brief-builder",
         "rag-knowledge-base",
+        "ai-project-manager-convex",
       ]),
     );
     expect(
       sitemap().map(function urlOf(entry) {
         return entry.url;
       }),
-    ).toContain("https://promptmarket.sh/guides/rag-knowledge-base");
+    ).toEqual(
+      expect.arrayContaining([
+        "https://promptmarket.sh/guides/rag-knowledge-base",
+        "https://promptmarket.sh/guides/ai-project-manager-convex",
+      ]),
+    );
     const visible = filterGallery(
       [
         promptGalleryItem({

@@ -11,10 +11,6 @@ export const metadata: Metadata = pageMetadata(
 
 const upcoming = [
   {
-    title: "AI Project Manager with Convex",
-    detail: "Next.js, OpenRouter, Convex",
-  },
-  {
     title: "Realtime AI Support Room",
     detail: "Next.js, OpenRouter, Supabase",
   },

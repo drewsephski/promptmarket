@@ -34,7 +34,7 @@ const uses = [
   {
     href: "/learn/what-llms-are-good-at",
     title: "Translation",
-    text: "Same meaning, with terms you refuse to paraphrase.",
+    text: "Same meaning. Exact terms.",
   },
 ];
 
@@ -192,8 +192,10 @@ export default function Home() {
         <p className="lede">
           A guide includes the keys, the database, and the code, and it ends
           with something running on localhost. Start with the{" "}
-          <a href="/guides/ai-product-brief-builder">product brief generator</a>{" "}
-          or the <a href="/guides/rag-knowledge-base">RAG knowledge base</a>.
+          <a href="/guides/ai-product-brief-builder">product brief generator</a>
+          , the <a href="/guides/rag-knowledge-base">RAG knowledge base</a>, or
+          the <a href="/guides/ai-project-manager-convex">AI project manager</a>
+          .
         </p>
       </section>
 

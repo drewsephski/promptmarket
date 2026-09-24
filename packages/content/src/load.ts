@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { ContentError, ContentNotFoundError } from "./errors.js";
 import { detectPlaceholders } from "./placeholders.js";
-import { rankItems } from "./search.js";
+import { rankItems, type Ranked } from "./search.js";
 import {
   CATEGORY_LABELS,
   DIAGRAMS,
@@ -965,4 +965,26 @@ export function categoryLabel(category: PromptCategory): string {
 
 export function difficultyLabel(difficulty: Difficulty): string {
   return difficulty.slice(0, 1).toUpperCase() + difficulty.slice(1);
+}
+
+export function rankContent(
+  catalog: ContentCatalog,
+  query: string,
+): {
+  topics: Ranked<LearnTopic>[];
+  prompts: Ranked<PromptDocument>[];
+  guides: Ranked<Guide>[];
+} {
+  const topicMap = new Map(
+    catalog.topics.map(function entry(topic) {
+      return [topic.slug, topic] as const;
+    }),
+  );
+  return {
+    topics: rankItems(query, catalog.topics, topicFields),
+    prompts: rankItems(query, catalog.prompts, function fields(prompt) {
+      return promptFields(prompt, topicMap);
+    }),
+    guides: rankItems(query, catalog.guides, guideFields),
+  };
 }

@@ -1,9 +1,24 @@
+export {
+  buildContext,
+  CONTENT_ORIGIN,
+  type BuildContextOptions,
+  type BuiltContext,
+  type ContextDetail,
+  type ContextGuide,
+  type ContextNextStep,
+  type ContextPrompt,
+  type ContextSkill,
+  type ContextSkillInput,
+  type ContextTopic,
+} from "./context.js";
+export { handleContentRequest } from "./content-http.js";
 export { ContentError, ContentNotFoundError } from "./errors.js";
 export {
   categoryLabel,
   difficultyLabel,
   loadContentCatalog,
   moduleTitle,
+  rankContent,
   resolveContentDir,
   summarizePrompt,
   type ContentCatalog,

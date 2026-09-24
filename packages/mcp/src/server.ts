@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { loadContentCatalog, type ContentCatalog } from "@promptmarket/content";
 import { FileRegistry, type Registry } from "@promptmarket/registry";
+import { registerBuildContext } from "./tools/build-context.js";
 import { registerGetGuide } from "./tools/get-guide.js";
 import { registerGetLearnTopic } from "./tools/get-learn-topic.js";
 import { registerGetPrompt } from "./tools/get-prompt.js";
@@ -22,6 +23,7 @@ export function createPromptMarketServer(
     name: "promptmarket",
     version: "0.3.0",
   });
+  registerBuildContext(server, registry, catalog);
   registerSearchPrompts(server, catalog);
   registerGetPrompt(server, catalog);
   registerSearchLearn(server, catalog);

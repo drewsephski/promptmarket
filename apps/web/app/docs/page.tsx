@@ -51,10 +51,12 @@ export default function DocsPage() {
         <p className="note">Cursor remote MCP config:</p>
         <CommandBlock command={cursorConfig} label="Copy Cursor MCP config" />
         <p className="note">
-          Primary tools: <code>search_prompts</code>, <code>get_prompt</code>,{" "}
-          <code>search_learn</code>, <code>get_learn_topic</code>,{" "}
-          <code>search_guides</code>, <code>get_guide</code>, and{" "}
-          <code>recommend_prompt</code>. <code>recommend_prompt</code> returns
+          Primary tools: <code>build_context</code>, <code>search_prompts</code>
+          , <code>get_prompt</code>, <code>search_learn</code>,{" "}
+          <code>get_learn_topic</code>, <code>search_guides</code>,{" "}
+          <code>get_guide</code>, and <code>recommend_prompt</code>.{" "}
+          <code>build_context</code> assembles the lesson, prompt, guide, and
+          skill for a feature in one call. <code>recommend_prompt</code> returns
           one match only when the wording is specific. Otherwise it returns
           alternatives.
         </p>
@@ -68,7 +70,8 @@ export default function DocsPage() {
       <Bezel coreClassName="panel">
         <h2>CLI</h2>
         <CommandBlock
-          command={`pnpm dlx @promptmarket/cli search "structured extraction"
+          command={`pnpm dlx @promptmarket/cli context "I'm adding tool calling to a Next.js app"
+pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag
 pnpm dlx @promptmarket/cli guides
@@ -76,11 +79,13 @@ pnpm dlx @promptmarket/cli guide ai-product-brief-builder`}
           label="Copy CLI examples"
         />
         <p className="note">
-          <code>search</code> prints prompts first, then skills.{" "}
-          <code>show</code> prints a prompt body, or a skill when the name is
-          not a prompt. <code>learn</code> prints a short lesson and its URL.{" "}
-          <code>guides</code> lists tutorials, and <code>guide</code> prints one
-          guide's outline and URL.
+          <code>context</code> assembles the lesson, prompt, and guide for a
+          feature. <code>search</code> prints guides, lessons, prompts, and
+          skills. <code>show</code> prints a prompt body, or a skill when the
+          name is not a prompt. <code>learn</code> prints a short lesson and its
+          URL. <code>guides</code> lists tutorials, and <code>guide</code>{" "}
+          prints one guide's outline and URL. The same catalog is available at{" "}
+          <code>/api/content/v1</code>.
         </p>
       </Bezel>
 

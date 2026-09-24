@@ -5,7 +5,9 @@ import { afterEach, describe, expect, test } from "vitest";
 import {
   ContentError,
   assertDistinctSlugs,
+  buildContext,
   detectPlaceholders,
+  handleContentRequest,
   loadContentCatalog,
 } from "../src/index.js";
 
@@ -115,7 +117,11 @@ describe("promptmarket content", function contentSuite() {
       catalog.guides.map(function slugOf(item) {
         return item.slug;
       }),
-    ).toEqual(["ai-product-brief-builder", "rag-knowledge-base"]);
+    ).toEqual([
+      "ai-product-brief-builder",
+      "rag-knowledge-base",
+      "ai-project-manager-convex",
+    ]);
     expect(guide.order).toBe(2);
     expect(guide.difficulty).toBe("intermediate");
     expect(guide.verifiedAt).toBe("2026-09-23");
@@ -153,6 +159,59 @@ describe("promptmarket content", function contentSuite() {
     expect(markdown).not.toContain("generateObject(");
     expect(markdown).not.toContain('from "langchain');
     expect(markdown).not.toContain("from 'langchain");
+  });
+
+  test("loads the Convex project manager guide", function loadsProjectManagerGuide() {
+    const catalog = loadContentCatalog();
+    const guide = catalog.getGuide("ai-project-manager-convex");
+    const byConvex = catalog.searchGuides("Convex");
+    const byToolCalling = catalog.searchGuides("tool calling");
+
+    expect(guide.order).toBe(3);
+    expect(guide.difficulty).toBe("intermediate");
+    expect(guide.verifiedAt).toBe("2026-09-23");
+    expect(guide.stack).toEqual(
+      expect.arrayContaining(["OpenRouter", "Convex", "Vercel AI SDK"]),
+    );
+    expect(guide.relatedTopics).toEqual(
+      expect.arrayContaining([
+        "tool-calling",
+        "agents",
+        "agentic-loops",
+        "prompting-fundamentals",
+        "evals",
+      ]),
+    );
+    expect(guide.relatedPrompts).toEqual(
+      expect.arrayContaining([
+        "tool-selection-router",
+        "safe-tool-calling-system",
+      ]),
+    );
+    expect(byConvex[0]?.slug).toBe("ai-project-manager-convex");
+    expect(
+      byToolCalling.some(function matches(item) {
+        return item.slug === "ai-project-manager-convex";
+      }),
+    ).toBe(true);
+    expect(catalog.guidesForTopic("tool-calling")[0]?.slug).toBe(
+      "ai-project-manager-convex",
+    );
+    expect(catalog.guidesForPrompt("safe-tool-calling-system")[0]?.slug).toBe(
+      "ai-project-manager-convex",
+    );
+    const markdown = guide.sections
+      .map(function textOf(section) {
+        return section.markdown;
+      })
+      .join("\n");
+    expect(markdown).toContain("isStepCount");
+    expect(markdown).toContain("inputSchema");
+    expect(markdown).toContain("fetchMutation");
+    expect(markdown).toContain("useQuery");
+    expect(markdown).not.toContain("stepCountIs(");
+    expect(markdown).not.toContain("maxSteps:");
+    expect(markdown).not.toContain("@convex-dev/agent");
   });
 
   test("rejects a guide that points at missing lessons or prompts", async function rejectsBrokenGuide() {
@@ -247,5 +306,130 @@ Hello {{input}}
         "broken-prompt.md",
       );
     }
+  });
+
+  test("assembles RAG context without a model", function assemblesRag() {
+    const catalog = loadContentCatalog();
+    const context = buildContext(catalog, {
+      query: "I'm building a RAG feature in Next.js with Neon",
+      detail: "compact",
+    });
+
+    expect(context.topics[0]?.slug).toBe("rag");
+    expect(context.topics[0]?.definition.length).toBeGreaterThan(0);
+    expect(context.topics[0]?.mentalModel.length).toBeGreaterThan(0);
+    expect(context.topics[0]?.commonMistake.length).toBeGreaterThan(0);
+    expect(context.prompts[0]?.name).toBe("rag-grounded-answer");
+    expect(context.prompts[0]?.body.length).toBeGreaterThan(0);
+    expect(
+      context.prompts.map(function nameOf(prompt) {
+        return prompt.name;
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "answer-with-citations",
+        "search-query-rewriter",
+      ]),
+    );
+    expect(context.guides[0]?.slug).toBe("rag-knowledge-base");
+    expect(context.guides[0]?.architecture.length).toBeGreaterThan(0);
+    expect(context.guides[0]?.url).toBe(
+      "https://promptmarket.sh/guides/rag-knowledge-base",
+    );
+    expect(context.guides[0]?.sections.length).toBeGreaterThan(0);
+    expect(context.guides[0]?.sections.length).toBeLessThanOrEqual(3);
+    expect(
+      context.suggestedNextSteps.map(function kindOf(step) {
+        return step.kind;
+      }),
+    ).toEqual(expect.arrayContaining(["topic", "prompt", "guide"]));
+  });
+
+  test("assembles tool-calling context for the Convex guide", function assemblesTools() {
+    const catalog = loadContentCatalog();
+    const context = buildContext(catalog, {
+      query: "I'm adding tool calling to a Next.js app with Convex",
+      skills: [
+        {
+          name: "github-pr-review",
+          version: "0.2.0",
+          description: "Review GitHub pull requests.",
+          tags: ["github"],
+        },
+      ],
+    });
+
+    expect(
+      context.topics.map(function slugOf(topic) {
+        return topic.slug;
+      }),
+    ).toContain("tool-calling");
+    expect(context.guides[0]?.slug).toBe("ai-project-manager-convex");
+    expect(
+      context.prompts.map(function nameOf(prompt) {
+        return prompt.name;
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "safe-tool-calling-system",
+        "tool-selection-router",
+      ]),
+    );
+    expect(context.skills).toEqual([]);
+  });
+
+  test("serves the content API from the catalog files", async function servesContent() {
+    const catalog = loadContentCatalog();
+    const search = await handleContentRequest(
+      catalog,
+      new Request("https://promptmarket.sh/api/content/v1/search?q=rag"),
+    );
+    const prompt = await handleContentRequest(
+      catalog,
+      new Request(
+        "https://promptmarket.sh/api/content/v1/prompts/rag-grounded-answer",
+      ),
+    );
+    const lesson = await handleContentRequest(
+      catalog,
+      new Request("https://promptmarket.sh/api/content/v1/learn/rag"),
+    );
+    const guide = await handleContentRequest(
+      catalog,
+      new Request(
+        "https://promptmarket.sh/api/content/v1/guides/rag-knowledge-base",
+      ),
+    );
+    const context = await handleContentRequest(
+      catalog,
+      new Request(
+        "https://promptmarket.sh/api/content/v1/context?q=rag&detail=compact",
+      ),
+    );
+    const missing = await handleContentRequest(
+      catalog,
+      new Request("https://promptmarket.sh/api/content/v1/learn/missing"),
+    );
+
+    expect(search.status).toBe(200);
+    const searchBody = (await search.json()) as {
+      lessons: Array<{ slug: string }>;
+      prompts: Array<{ name: string }>;
+      guides: Array<{ slug: string }>;
+    };
+    expect(searchBody.lessons[0]?.slug).toBe("rag");
+    expect(searchBody.prompts.map(function nameOf(prompt) {
+      return prompt.name;
+    })).toContain("rag-grounded-answer");
+    expect(searchBody.guides[0]?.slug).toBe("rag-knowledge-base");
+    expect(prompt.status).toBe(200);
+    expect(lesson.status).toBe(200);
+    expect(guide.status).toBe(200);
+    expect(context.status).toBe(200);
+    const contextBody = (await context.json()) as {
+      topics: Array<{ slug: string }>;
+    };
+    expect(contextBody.topics[0]?.slug).toBe("rag");
+    expect(missing.status).toBe(404);
   });
 });

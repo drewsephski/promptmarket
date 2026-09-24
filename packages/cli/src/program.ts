@@ -1,8 +1,11 @@
 import { Command, CommanderError } from "commander";
 import {
+  buildContext,
   ContentNotFoundError,
   loadContentCatalog,
+  type BuiltContext,
   type ContentCatalog,
+  type ContextDetail,
   type PromptDocument,
 } from "@promptmarket/content";
 import {
@@ -79,6 +82,72 @@ function inspectRecipe(recipe: Recipe) {
   };
 }
 
+function formatContext(context: BuiltContext): string {
+  const lines: string[] = [];
+  if (context.topics.length > 0) {
+    lines.push("CONCEPTS");
+    for (const topic of context.topics) {
+      lines.push(
+        topic.title,
+        topic.definition,
+        topic.mentalModel,
+        topic.commonMistake,
+        "",
+      );
+    }
+  }
+  if (context.prompts.length > 0) {
+    lines.push("PROMPTS");
+    const [primary, ...related] = context.prompts;
+    if (primary) {
+      lines.push(
+        primary.name,
+        primary.title,
+        primary.variables.length > 0
+          ? `Variables: ${primary.variables.join(", ")}`
+          : "Variables: none",
+        "",
+        primary.body,
+        "",
+      );
+    }
+    if (related.length > 0) {
+      lines.push("RELATED");
+      for (const prompt of related) {
+        lines.push(prompt.name);
+      }
+      lines.push("");
+    }
+  }
+  if (context.guides.length > 0) {
+    lines.push("GUIDES");
+    for (const guide of context.guides) {
+      lines.push(guide.title, guide.url);
+      if (guide.architecture.length > 0) {
+        lines.push(guide.architecture.join(" → "));
+      }
+      for (const section of guide.sections) {
+        lines.push(section.title);
+      }
+      lines.push("");
+    }
+  }
+  if (context.skills.length > 0) {
+    lines.push("SKILLS");
+    for (const skill of context.skills) {
+      lines.push(`${skill.name}\t${skill.version}`, skill.description, "");
+    }
+  }
+  if (context.suggestedNextSteps.length > 0) {
+    lines.push("NEXT");
+    for (const step of context.suggestedNextSteps) {
+      lines.push(`${step.title}: ${step.reason}`);
+    }
+    lines.push("");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
 const SITE_ORIGIN = "https://promptmarket.sh";
 
 function contentCatalog(contentDir?: string): ContentCatalog {
@@ -109,7 +178,7 @@ export function createProgram(
   program
     .name("promptmarket")
     .description(
-      "Search prompts and lessons, read guides, or install PromptMarket skills",
+      "Search the PromptMarket catalog, assemble context, or install skills",
     )
     .version("0.3.0")
     .configureOutput({
@@ -124,7 +193,7 @@ export function createProgram(
 
   program
     .command("search")
-    .description("Search prompts, then skills, by name, description, and tags")
+    .description("Search guides, lessons, prompts, and skills")
     .argument("<query>", "Search query")
     .option("--json", "Print deterministic JSON to stdout")
     .option("--recipes <dir>", "Read recipes from a local directory")
@@ -140,7 +209,10 @@ export function createProgram(
       },
     ) {
       try {
-        const prompts = contentCatalog(options.content).searchPrompts(query);
+        const catalog = contentCatalog(options.content);
+        const guides = catalog.searchGuides(query);
+        const lessons = catalog.searchTopics(query);
+        const prompts = catalog.searchPrompts(query);
         const recipes = await createRegistry(options).search(query);
         const summaries = recipes.map(summarizeRecipe);
         if (options.json) {
@@ -148,6 +220,20 @@ export function createProgram(
             json({
               ok: true,
               query,
+              guides: guides.map(function summarizeGuideHit(guide) {
+                return {
+                  slug: guide.slug,
+                  title: guide.title,
+                  description: guide.description,
+                };
+              }),
+              lessons: lessons.map(function summarizeLessonHit(lesson) {
+                return {
+                  slug: lesson.slug,
+                  title: lesson.title,
+                  summary: lesson.summary,
+                };
+              }),
               prompts: prompts.map(function summarizePromptHit(prompt) {
                 return {
                   name: prompt.name,
@@ -162,24 +248,101 @@ export function createProgram(
           );
           return;
         }
-        if (prompts.length === 0 && summaries.length === 0) {
-          io.stdout("No prompts or skills matched.\n");
+        const sections: Array<[string, string[]]> = [
+          [
+            "GUIDES",
+            guides.map(function line(guide) {
+              return `${guide.slug}\n${guide.title}`;
+            }),
+          ],
+          [
+            "LESSONS",
+            lessons.map(function line(lesson) {
+              return `${lesson.slug}\n${lesson.title}`;
+            }),
+          ],
+          [
+            "PROMPTS",
+            prompts.map(function line(prompt) {
+              return `${prompt.name}\n${prompt.title}`;
+            }),
+          ],
+          [
+            "SKILLS",
+            summaries.map(function line(recipe) {
+              return `${recipe.name}\t${recipe.version}\n${recipe.description}`;
+            }),
+          ],
+        ];
+        const visible = sections.filter(function hasHits(section) {
+          return section[1].length > 0;
+        });
+        if (visible.length === 0) {
+          io.stdout("No guides, lessons, prompts, or skills matched.\n");
           return;
         }
-        if (prompts.length > 0) {
-          io.stdout("Prompts\n");
-          for (const prompt of prompts) {
-            io.stdout(`${prompt.name}\n${prompt.description}\n`);
-          }
+        for (const [heading, lines] of visible) {
+          io.stdout(`${heading}\n${lines.join("\n")}\n`);
         }
-        if (summaries.length > 0) {
-          io.stdout("Skills\n");
-          for (const recipe of summaries) {
-            io.stdout(
-              `${recipe.name}\t${recipe.version}\n${recipe.description}\n`,
-            );
-          }
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("context")
+    .description("Assemble lessons, prompts, guides, and skills for a feature")
+    .argument("<query>", "Feature description")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--detail <level>", "compact or full", "compact")
+    .option("--max-items <count>", "Maximum items in each collection", "5")
+    .option("--recipes <dir>", "Read recipes from a local directory")
+    .option("--registry <url>", "Registry API base URL")
+    .option(
+      "--content <dir>",
+      "Read lessons, prompts, and guides from a directory",
+    )
+    .action(async function contextAction(
+      query: string,
+      options: {
+        json?: boolean;
+        detail?: string;
+        maxItems?: string;
+        recipes?: string;
+        registry?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const detail = options.detail === "full" ? "full" : "compact";
+        if (
+          options.detail &&
+          options.detail !== "compact" &&
+          options.detail !== "full"
+        ) {
+          throw new Error('Expected --detail to be "compact" or "full"');
         }
+        const maxItems = Number(options.maxItems);
+        const catalog = contentCatalog(options.content);
+        const recipes = await createRegistry(options).search(query);
+        const context = buildContext(catalog, {
+          query,
+          detail: detail as ContextDetail,
+          maxItems,
+          skills: recipes.map(function skill(recipe) {
+            return {
+              name: recipe.name,
+              version: recipe.version,
+              description: recipe.description,
+              tags: recipe.tags,
+            };
+          }),
+        });
+        if (options.json) {
+          io.stdout(json({ ok: true, ...context }));
+          return;
+        }
+        io.stdout(formatContext(context));
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
       }
