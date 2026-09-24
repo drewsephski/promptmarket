@@ -21,7 +21,7 @@ export function createPromptMarketServer(
 ): McpServer {
   const server = new McpServer({
     name: "promptmarket",
-    version: "0.3.0",
+    version: "0.4.0",
   });
   registerBuildContext(server, registry, catalog);
   registerSearchPrompts(server, catalog);

@@ -6,7 +6,8 @@ Lessons, guides, and prompts live on the site. Coding agents can read the same m
 
 ```bash
 pnpm dlx @promptmarket/cli detect
-pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project .
+pnpm dlx @promptmarket/cli doctor
+pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project . --format agent
 pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag

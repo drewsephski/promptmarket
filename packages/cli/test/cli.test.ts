@@ -698,10 +698,70 @@ describe("promptmarket cli", function promptmarketCli() {
       })?.reasons,
     ).toEqual(expect.arrayContaining(["Project uses Neon", "Project uses Drizzle"]));
     expect(payload.projectNotes).toEqual(
-      expect.arrayContaining([{ status: "missing", label: "pgvector" }]),
+      expect.arrayContaining([
+        { status: "detected", label: "Drizzle" },
+        { status: "required", label: "pgvector" },
+        { status: "required", label: "embedding model" },
+      ]),
     );
+    expect(payload.projectNotes?.some(function missing(note) {
+      return note.status === "missing";
+    })).toBe(false);
     expect(convexExit).toBe(0);
     expect(convex.guides[0]?.slug).toBe("ai-project-manager-convex");
+  });
+
+  test("doctor compares package versions and context --format agent is markdown", async function doctorAndAgent() {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "promptmarket-doctor-"));
+    tempDirs.push(directory);
+    await writeFile(
+      path.join(directory, "package.json"),
+      JSON.stringify({
+        packageManager: "pnpm@11.0.0",
+        dependencies: {
+          next: "16.3.4",
+          ai: "6.0.0",
+          "@openrouter/ai-sdk-provider": "2.1.1",
+          "drizzle-orm": "0.45.1",
+          "@neondatabase/serverless": "1.1.0",
+        },
+      }),
+    );
+    await writeFile(path.join(directory, "tsconfig.json"), "{}");
+    const io = captureIo();
+    const exitCode = await run(
+      ["node", "promptmarket", "doctor", directory, "--offline"],
+      io,
+    );
+    const agentIo = captureIo();
+    const agentExit = await run(
+      [
+        "node",
+        "promptmarket",
+        "context",
+        "add RAG",
+        "--project",
+        directory,
+        "--format",
+        "agent",
+        "--offline",
+        "--recipes",
+        recipesDir,
+      ],
+      agentIo,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(io.out()).toContain("PromptMarket Doctor");
+    expect(io.out()).toContain("Next.js 16");
+    expect(io.out()).toContain("Vercel AI SDK 6");
+    expect(io.out()).toContain("! AI SDK 6 → guide verified with AI SDK 7");
+    expect(io.out()).toContain("✓ Drizzle 0.45");
+    expect(io.out()).not.toContain("missing");
+    expect(agentExit).toBe(0);
+    expect(agentIo.out()).toContain("# PromptMarket Implementation Context");
+    expect(agentIo.out()).toContain("## Compatibility");
+    expect(agentIo.out()).toContain("## Recommended guide");
   });
 
   test("info without a recipe reports the content source", async function printsContentInfo() {

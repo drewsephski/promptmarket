@@ -6,6 +6,7 @@ export type ProjectContext = {
   language?: string;
   packageManager?: string;
   packages: string[];
+  versions: Record<string, string>;
   ai?: {
     sdk?: string;
     provider?: string;
@@ -81,12 +82,34 @@ function hasDirectory(root: string, name: string): boolean {
   return existsSync(path.join(root, name));
 }
 
-function majorVersion(range: string | undefined): string | undefined {
+function declaredVersion(range: string | undefined): string | undefined {
   if (!range) {
     return undefined;
   }
-  const match = /(\d+)/.exec(range);
+  const match = /(\d+(?:\.\d+){0,2})/.exec(range);
   return match?.[1];
+}
+
+function majorVersion(range: string | undefined): string | undefined {
+  return declaredVersion(range)?.split(".")[0];
+}
+
+function versionMap(manifest: PackageJson | undefined): Record<string, string> {
+  const versions: Record<string, string> = {};
+  const sources = [
+    manifest?.dependencies ?? {},
+    manifest?.devDependencies ?? {},
+    manifest?.peerDependencies ?? {},
+  ];
+  for (const source of sources) {
+    for (const [name, range] of Object.entries(source)) {
+      const version = declaredVersion(range);
+      if (version && !(name in versions)) {
+        versions[name] = version;
+      }
+    }
+  }
+  return versions;
 }
 
 function unique(values: string[]): string[] {
@@ -112,7 +135,8 @@ export function detectProject(root: string): ProjectContext {
     ? readJson(path.join(directory, "package.json"))
     : undefined;
   const packages = unique(dependencyNames(manifest)).sort();
-  const versions = {
+  const versions = versionMap(manifest);
+  const ranges = {
     ...(manifest?.dependencies ?? {}),
     ...(manifest?.devDependencies ?? {}),
     ...(manifest?.peerDependencies ?? {}),
@@ -120,7 +144,7 @@ export function detectProject(root: string): ProjectContext {
 
   let framework: string | undefined;
   if (packages.includes("next") || hasFile(directory, "next.config.ts") || hasFile(directory, "next.config.mjs") || hasFile(directory, "next.config.js") || hasFile(directory, "next.config.mts")) {
-    const major = majorVersion(versions.next);
+    const major = majorVersion(ranges.next);
     framework = major ? `Next.js ${major}` : "Next.js";
   }
 
@@ -179,7 +203,7 @@ export function detectProject(root: string): ProjectContext {
     orm.push("Drizzle");
   }
 
-  const context: ProjectContext = { packages };
+  const context: ProjectContext = { packages, versions };
   if (framework) {
     context.framework = framework;
   }
@@ -244,8 +268,28 @@ export function parseProjectContext(value: unknown): ProjectContext {
   ) {
     throw new Error("project.packages must be an array of strings");
   }
+  const versions = record.versions;
+  if (
+    versions !== undefined &&
+    (typeof versions !== "object" ||
+      versions === null ||
+      Array.isArray(versions) ||
+      Object.values(versions).some(function bad(item) {
+        return typeof item !== "string";
+      }))
+  ) {
+    throw new Error("project.versions must be an object of version strings");
+  }
   const context: ProjectContext = {
     packages: Array.isArray(packages) ? packages : [],
+    versions:
+      versions && typeof versions === "object" && !Array.isArray(versions)
+        ? Object.fromEntries(
+            Object.entries(versions).filter(function keep(entry): entry is [string, string] {
+              return typeof entry[1] === "string";
+            }),
+          )
+        : {},
   };
   if (typeof record.framework === "string" && record.framework.length > 0) {
     context.framework = record.framework;

@@ -36,7 +36,7 @@ export function registerSearchLearn(
     {
       title: "Search lessons",
       description:
-        "Search PromptMarket lessons on AI engineering. Returns matching concepts, not full articles. An empty query returns every lesson.",
+        "Discovery fallback when you are browsing lessons rather than implementing a feature. Returns matching concepts, not full articles.",
       inputSchema,
       outputSchema,
       annotations,

@@ -5,6 +5,14 @@ export type RetrievalCase = {
   expectedPrompt?: string;
   /** Natural phrasing is scored at top-3. Lexical phrasing is scored at top-1. */
   rank: "top1" | "top3";
+  project?: {
+    framework?: string;
+    language?: string;
+    database?: string[];
+    orm?: string[];
+    packages?: string[];
+    versions?: Record<string, string>;
+  };
 };
 
 export const retrievalCases: RetrievalCase[] = [
@@ -168,6 +176,29 @@ export const retrievalCases: RetrievalCase[] = [
   {
     query: "pgvector cosine similarity",
     expectedGuide: "rag-knowledge-base",
+    rank: "top1",
+  },
+  {
+    query: "add a knowledge base",
+    project: {
+      framework: "Next.js",
+      database: ["Neon"],
+      orm: ["Drizzle"],
+      packages: ["next", "drizzle-orm", "@neondatabase/serverless"],
+      versions: { next: "16.3.4", "drizzle-orm": "0.45.1" },
+    },
+    expectedGuide: "rag-knowledge-base",
+    rank: "top1",
+  },
+  {
+    query: "teach me Convex tool calling",
+    project: {
+      database: ["Neon"],
+      packages: ["@neondatabase/serverless"],
+      versions: { "@neondatabase/serverless": "1.0.0" },
+    },
+    expectedGuide: "ai-project-manager-convex",
+    expectedTopic: "tool-calling",
     rank: "top1",
   },
 ];

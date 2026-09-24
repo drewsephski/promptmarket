@@ -41,7 +41,7 @@ export function registerGetLearnTopic(
     {
       title: "Get lesson",
       description:
-        "Return one PromptMarket lesson: the definition, when to use it, a short example, and the prompts that go with it.",
+        "Drill down after build_context when you need one lesson: the definition, when to use it, a short example, and the prompts that go with it.",
       inputSchema,
       outputSchema,
       annotations,

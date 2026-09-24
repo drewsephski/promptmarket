@@ -1,3 +1,4 @@
+import { compatibilityFor, type CompatibilityItem } from "./compatibility.js";
 import { ContentError } from "./errors.js";
 import { rankContent, type ContentCatalog } from "./load.js";
 import { projectStackLabels, type ProjectContext } from "./project.js";
@@ -13,7 +14,7 @@ export const CONTENT_ORIGIN = "https://promptmarket.sh";
 
 const DEFAULT_MAX_ITEMS = 5;
 const MAX_ITEMS_LIMIT = 10;
-const COMPACT_SECTION_LIMIT = 3;
+const COMPACT_SECTION_LIMIT = 2;
 const CONTEXT_NOISE = new Set(["building", "build", "feature", "features"]);
 
 export type ContextDetail = "compact" | "full";
@@ -38,8 +39,8 @@ export type ContextTopic = {
   slug: string;
   title: string;
   definition: string;
-  mentalModel: string;
-  commonMistake: string;
+  mentalModel?: string;
+  commonMistake?: string;
   url: string;
   summary?: string;
   why?: string;
@@ -57,7 +58,7 @@ export type ContextPrompt = {
   description: string;
   category: string;
   variables: string[];
-  body: string;
+  body?: string;
   url: string;
   whenToUse?: string;
   whyItWorks?: string;
@@ -113,9 +114,19 @@ export type ContextMatch = {
   reasons: string[];
 };
 
+export type ProjectNoteStatus = "detected" | "not-detected" | "required";
+
 export type ProjectNote = {
-  status: "present" | "missing";
+  status: ProjectNoteStatus;
   label: string;
+};
+
+export type RelatedItem = {
+  kind: "topic" | "prompt" | "guide";
+  name: string;
+  title: string;
+  summary: string;
+  url: string;
 };
 
 export type BuiltContext = {
@@ -133,6 +144,12 @@ export type BuiltContext = {
   matches?: ContextMatch[];
   project?: ProjectContext;
   projectNotes?: ProjectNote[];
+  related?: {
+    topics: RelatedItem[];
+    prompts: RelatedItem[];
+    guides: RelatedItem[];
+  };
+  compatibility?: CompatibilityItem[];
 };
 
 function clampMaxItems(value: number | undefined): number {
@@ -274,14 +291,24 @@ function presentTopic(
   topic: LearnTopic,
   origin: string,
   detail: ContextDetail,
+  primary: boolean,
 ): ContextTopic {
+  const url = `${origin}${topic.href}`;
+  if (detail === "compact" && !primary) {
+    return {
+      slug: topic.slug,
+      title: topic.title,
+      definition: topic.summary,
+      url,
+    };
+  }
   const compact: ContextTopic = {
     slug: topic.slug,
     title: topic.title,
     definition: topic.definition,
     mentalModel: topic.mentalModel,
     commonMistake: topic.sections.commonMistakes.trim(),
-    url: `${origin}${topic.href}`,
+    url,
   };
   if (detail === "compact") {
     return compact;
@@ -303,7 +330,19 @@ function presentPrompt(
   prompt: PromptDocument,
   origin: string,
   detail: ContextDetail,
+  primary: boolean,
 ): ContextPrompt {
+  const url = `${origin}${prompt.href}`;
+  if (detail === "compact" && !primary) {
+    return {
+      name: prompt.slug,
+      title: prompt.title,
+      description: prompt.description,
+      category: prompt.category,
+      variables: prompt.variables,
+      url,
+    };
+  }
   const compact: ContextPrompt = {
     name: prompt.slug,
     title: prompt.title,
@@ -311,7 +350,7 @@ function presentPrompt(
     category: prompt.category,
     variables: prompt.variables,
     body: prompt.body,
-    url: `${origin}${prompt.href}`,
+    url,
   };
   if (detail === "compact") {
     return compact;
@@ -333,7 +372,20 @@ function presentGuide(
   query: string,
   origin: string,
   detail: ContextDetail,
+  primary: boolean,
 ): ContextGuide {
+  if (detail === "compact" && !primary) {
+    return {
+      slug: guide.slug,
+      title: guide.title,
+      description: guide.description,
+      difficulty: guide.difficulty,
+      stack: guide.stack,
+      architecture: [],
+      sections: [],
+      url: `${origin}${guide.href}`,
+    };
+  }
   const compact: ContextGuide = {
     slug: guide.slug,
     title: guide.title,
@@ -562,14 +614,14 @@ export function buildContext(
     },
     maxItems,
   );
-  const presentedTopics = topics.map(function present(topic) {
-    return presentTopic(topic, origin, detail);
+  const presentedTopics = topics.map(function present(topic, index) {
+    return presentTopic(topic, origin, detail, index === 0);
   });
-  const presentedPrompts = prompts.map(function present(prompt) {
-    return presentPrompt(prompt, origin, detail);
+  const presentedPrompts = prompts.map(function present(prompt, index) {
+    return presentPrompt(prompt, origin, detail, index === 0);
   });
-  const presentedGuides = guides.map(function present(guide) {
-    return presentGuide(guide, focused, origin, detail);
+  const presentedGuides = guides.map(function present(guide, index) {
+    return presentGuide(guide, focused, origin, detail, index === 0);
   });
   const primaryTopic = presentedTopics[0];
   const primaryPrompt = presentedPrompts[0];
@@ -608,6 +660,10 @@ export function buildContext(
   const projectNotes = primaryGuide
     ? notesForGuide(primaryGuide, projectLabels, options.project)
     : undefined;
+  const compatibility =
+    primaryGuide && options.project
+      ? compatibilityFor(primaryGuide, options.project)
+      : undefined;
   return {
     query,
     topics: presentedTopics,
@@ -628,6 +684,36 @@ export function buildContext(
     matches,
     ...(options.project ? { project: options.project } : {}),
     ...(projectNotes && projectNotes.length > 0 ? { projectNotes } : {}),
+    related: {
+      topics: presentedTopics.slice(1).map(function topic(item) {
+        return {
+          kind: "topic" as const,
+          name: item.slug,
+          title: item.title,
+          summary: item.definition,
+          url: item.url,
+        };
+      }),
+      prompts: presentedPrompts.slice(1).map(function prompt(item) {
+        return {
+          kind: "prompt" as const,
+          name: item.name,
+          title: item.title,
+          summary: item.description,
+          url: item.url,
+        };
+      }),
+      guides: presentedGuides.slice(1).map(function guide(item) {
+        return {
+          kind: "guide" as const,
+          name: item.slug,
+          title: item.title,
+          summary: item.description,
+          url: item.url,
+        };
+      }),
+    },
+    ...(compatibility && compatibility.length > 0 ? { compatibility } : {}),
   };
 }
 
@@ -647,6 +733,8 @@ function queryReasons(
   return [`Query matched ${matched.join(" and ")}`];
 }
 
+const UNVERIFIED_STACK = new Set(["pgvector"]);
+
 function notesForGuide(
   guide: Guide,
   projectLabels: readonly string[],
@@ -657,22 +745,27 @@ function notesForGuide(
   }
   const notes: ProjectNote[] = [];
   for (const label of guide.stack) {
-    const present = stackOverlap([label], projectLabels).length > 0;
     if (label === "TypeScript" || label.startsWith("Next.js")) {
       continue;
     }
+    if (UNVERIFIED_STACK.has(label.toLowerCase())) {
+      notes.push({ status: "required", label });
+      continue;
+    }
+    const detected = stackOverlap([label], projectLabels).length > 0;
     notes.push({
-      status: present ? "present" : "missing",
+      status: detected ? "detected" : "not-detected",
       label,
     });
   }
-  if (
-    guide.concepts.includes("embeddings") &&
-    !project.packages.some(function embedding(name) {
+  if (guide.concepts.includes("embeddings")) {
+    const seen = project.packages.some(function embedding(name) {
       return name.toLowerCase().includes("embed");
-    })
-  ) {
-    notes.push({ status: "missing", label: "embedding model" });
+    });
+    notes.push({
+      status: seen ? "detected" : "required",
+      label: "embedding model",
+    });
   }
   return notes;
 }

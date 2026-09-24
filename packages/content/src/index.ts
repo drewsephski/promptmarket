@@ -1,4 +1,13 @@
 export {
+  compatibilityFor,
+  doctorGuides,
+  packageLabel,
+  versionsMatch,
+  type CompatibilityItem,
+  type CompatibilityStatus,
+  type DoctorGuide,
+} from "./compatibility.js";
+export {
   buildContext,
   CONTENT_ORIGIN,
   type BuildContextOptions,
@@ -9,6 +18,8 @@ export {
   type ContextNextStep,
   type ContextPrompt,
   type ProjectNote,
+  type ProjectNoteStatus,
+  type RelatedItem,
   type ContextSkill,
   type ContextSkillInput,
   type ContextTopic,

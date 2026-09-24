@@ -46,7 +46,7 @@ export function registerSearchPrompts(
     {
       title: "Search prompts",
       description:
-        "Search PromptMarket prompt patterns by title, description, category, tags, and related concepts. Returns summaries, not prompt bodies. An empty query returns every prompt.",
+        "Discovery fallback when you are browsing prompt patterns rather than implementing a feature. Returns summaries, not prompt bodies.",
       inputSchema,
       outputSchema,
       annotations,

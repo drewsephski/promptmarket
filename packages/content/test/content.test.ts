@@ -319,10 +319,10 @@ Hello {{input}}
 
     expect(context.topics[0]?.slug).toBe("rag");
     expect(context.topics[0]?.definition.length).toBeGreaterThan(0);
-    expect(context.topics[0]?.mentalModel.length).toBeGreaterThan(0);
-    expect(context.topics[0]?.commonMistake.length).toBeGreaterThan(0);
+    expect(context.topics[0]?.mentalModel?.length).toBeGreaterThan(0);
+    expect(context.topics[0]?.commonMistake?.length).toBeGreaterThan(0);
     expect(context.prompts[0]?.name).toBe("rag-grounded-answer");
-    expect(context.prompts[0]?.body.length).toBeGreaterThan(0);
+    expect(context.prompts[0]?.body?.length).toBeGreaterThan(0);
     expect(
       context.prompts.map(function nameOf(prompt) {
         return prompt.name;
@@ -339,7 +339,9 @@ Hello {{input}}
       "https://promptmarket.sh/guides/rag-knowledge-base",
     );
     expect(context.guides[0]?.sections.length).toBeGreaterThan(0);
-    expect(context.guides[0]?.sections.length).toBeLessThanOrEqual(3);
+    expect(context.guides[0]?.sections.length).toBeLessThanOrEqual(2);
+    expect(context.prompts[1]?.body).toBeUndefined();
+    expect(context.related?.prompts.length).toBeGreaterThan(0);
     expect(
       context.suggestedNextSteps.map(function kindOf(step) {
         return step.kind;

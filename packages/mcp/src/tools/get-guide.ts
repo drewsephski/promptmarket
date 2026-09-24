@@ -18,6 +18,7 @@ const outputSchema = z.object({
   concepts: z.array(z.string()),
   estimatedTime: z.string().optional(),
   verifiedAt: z.string().optional(),
+  testedWith: z.record(z.string(), z.string()).optional(),
   prerequisites: z.array(z.string()),
   whatYouBuild: z.array(z.string()),
   whatYouLearn: z.array(z.string()),
@@ -49,7 +50,7 @@ export function registerGetGuide(
     {
       title: "Get guide",
       description:
-        "Return one PromptMarket guide as structured markdown sections. The payload is the tutorial text, not HTML.",
+        "Drill down after build_context when you need the full guide. Returns structured markdown sections, not HTML.",
       inputSchema,
       outputSchema,
       annotations,
@@ -68,6 +69,7 @@ export function registerGetGuide(
             ? { estimatedTime: guide.estimatedTime }
             : {}),
           ...(guide.verifiedAt ? { verifiedAt: guide.verifiedAt } : {}),
+          ...(guide.testedWith ? { testedWith: guide.testedWith } : {}),
           prerequisites: guide.prerequisites,
           whatYouBuild: guide.whatYouBuild,
           whatYouLearn: guide.whatYouLearn,

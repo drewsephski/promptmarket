@@ -28,7 +28,7 @@ const inputSchema = z.object({
     .enum(["compact", "full"])
     .optional()
     .describe(
-      "compact returns the concept, prompt body, and relevant guide sections. full adds the rest of each document.",
+      "compact returns one full concept, one prompt body, and one or two guide sections. Related items are summaries. full adds the rest of each document.",
     ),
   project: z
     .object({
@@ -36,6 +36,7 @@ const inputSchema = z.object({
       language: z.string().optional(),
       packageManager: z.string().optional(),
       packages: z.array(z.string()).optional(),
+      versions: z.record(z.string(), z.string()).optional(),
       ai: z
         .object({
           sdk: z.string().optional(),
@@ -55,8 +56,8 @@ const topicSchema = z.object({
   slug: z.string(),
   title: z.string(),
   definition: z.string(),
-  mentalModel: z.string(),
-  commonMistake: z.string(),
+  mentalModel: z.string().optional(),
+  commonMistake: z.string().optional(),
   url: z.string(),
   summary: z.string().optional(),
   why: z.string().optional(),
@@ -74,7 +75,7 @@ const promptSchema = z.object({
   description: z.string(),
   category: z.string(),
   variables: z.array(z.string()),
-  body: z.string(),
+  body: z.string().optional(),
   url: z.string(),
   whenToUse: z.string().optional(),
   whyItWorks: z.string().optional(),
@@ -108,6 +109,14 @@ const guideSchema = z.object({
   whatYouLearn: z.array(z.string()).optional(),
   relatedTopics: z.array(z.string()).optional(),
   relatedPrompts: z.array(z.string()).optional(),
+});
+
+const relatedSchema = z.object({
+  kind: z.enum(["topic", "prompt", "guide"]),
+  name: z.string(),
+  title: z.string(),
+  summary: z.string(),
+  url: z.string(),
 });
 
 const outputSchema = z.object({
@@ -151,8 +160,26 @@ const outputSchema = z.object({
   projectNotes: z
     .array(
       z.object({
-        status: z.enum(["present", "missing"]),
+        status: z.enum(["detected", "not-detected", "required"]),
         label: z.string(),
+      }),
+    )
+    .optional(),
+  related: z
+    .object({
+      topics: z.array(relatedSchema),
+      prompts: z.array(relatedSchema),
+      guides: z.array(relatedSchema),
+    })
+    .optional(),
+  compatibility: z
+    .array(
+      z.object({
+        packageName: z.string(),
+        label: z.string(),
+        status: z.enum(["match", "differs", "not-detected"]),
+        tested: z.string(),
+        detected: z.string().optional(),
       }),
     )
     .optional(),
@@ -174,7 +201,7 @@ export function registerBuildContext(
     {
       title: "Build context",
       description:
-        "Assemble the lessons, prompts, guides, and skills for a feature in one call. Deterministic lexical ranking plus the catalog graph. Does not call a model. Use this before implementing an AI feature. If you know the current project's framework or dependencies, include them so results can be tailored to the existing stack.",
+        "Use this first when implementing or modifying an AI feature. Returns one primary lesson, prompt, and guide. Call get_learn_topic, get_prompt, or get_guide only when you need the rest of a related item. Deterministic ranking. Does not call a model. Include a project fingerprint when you know the framework or dependencies.",
       inputSchema,
       outputSchema,
       annotations,

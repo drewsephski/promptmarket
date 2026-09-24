@@ -71,7 +71,8 @@ export default function DocsPage() {
         <h2>CLI</h2>
         <CommandBlock
           command={`pnpm dlx @promptmarket/cli detect
-pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project .
+pnpm dlx @promptmarket/cli doctor
+pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project . --format agent
 pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag
@@ -81,10 +82,13 @@ pnpm dlx @promptmarket/cli guide ai-product-brief-builder`}
         />
         <p className="note">
           <code>detect</code> fingerprints the current project from{" "}
-          <code>package.json</code> and config filenames. <code>context</code>{" "}
+          <code>package.json</code> and config filenames. <code>doctor</code>{" "}
+          compares those versions with the packages each guide was reproduced
+          with. <code>context</code>{" "}
           assembles the lesson, prompt, and guide for a feature, and{" "}
           <code>--project</code> reranks that result toward the detected stack
-          without overriding a more specific query. <code>search</code> prints
+          without overriding a more specific query. <code>--format agent</code>{" "}
+          prints that context as markdown for an agent. <code>search</code> prints
           guides, lessons, prompts, and skills. <code>show</code> prints a
           prompt body, or a skill when the name is not a prompt.{" "}
           <code>learn</code> prints a short lesson and its URL.{" "}

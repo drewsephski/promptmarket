@@ -178,6 +178,40 @@ function optionalVerifiedAt(
   return value;
 }
 
+function optionalTestedWith(
+  record: Record<string, unknown>,
+  file: string,
+): Record<string, string> | undefined {
+  if (!("testedWith" in record) || record.testedWith == null) {
+    return undefined;
+  }
+  const value = record.testedWith;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new ContentError(
+      file,
+      "testedWith must be a mapping of package names to versions",
+    );
+  }
+  const entries = Object.entries(value);
+  if (entries.length === 0) {
+    throw new ContentError(file, "testedWith must list at least one package");
+  }
+  const tested: Record<string, string> = {};
+  for (const [name, version] of entries) {
+    if (!/^[@a-z0-9][a-z0-9@/._-]*$/i.test(name)) {
+      throw new ContentError(file, `testedWith has an invalid package name`);
+    }
+    if (typeof version !== "string" || !/^\d+(?:\.\d+){0,2}$/.test(version)) {
+      throw new ContentError(
+        file,
+        `testedWith.${name} must be a version such as 16, 7, or 0.45`,
+      );
+    }
+    tested[name] = version;
+  }
+  return tested;
+}
+
 function requireStringList(
   record: Record<string, unknown>,
   key: string,
@@ -569,6 +603,7 @@ function loadGuide(filePath: string): Guide {
       "estimatedTime",
       "order",
       "verifiedAt",
+      "testedWith",
       "prerequisites",
       "whatYouBuild",
       "whatYouLearn",
@@ -604,6 +639,7 @@ function loadGuide(filePath: string): Guide {
     estimatedTime: optionalString(data, "estimatedTime", file),
     order,
     verifiedAt: optionalVerifiedAt(data, file),
+    testedWith: optionalTestedWith(data, file),
     prerequisites: requireStringList(data, "prerequisites", file),
     whatYouBuild: requireStringList(data, "whatYouBuild", file),
     whatYouLearn: requireStringList(data, "whatYouLearn", file),

@@ -19,6 +19,14 @@ concepts:
 estimatedTime: 90 minutes
 order: 2
 verifiedAt: 2026-09-23
+testedWith:
+  next: "16"
+  ai: "7"
+  "@ai-sdk/react": "4"
+  "@openrouter/ai-sdk-provider": "3"
+  zod: "4"
+  drizzle-orm: "0.45"
+  "@neondatabase/serverless": "1"
 prerequisites:
   - Node.js 22 or newer
   - pnpm 10 or newer

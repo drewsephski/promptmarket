@@ -3,8 +3,10 @@ import {
   buildContext,
   ContentNotFoundError,
   detectProject,
+  doctorGuides,
   otherProjectLabels,
   type BuiltContext,
+  type CompatibilityItem,
   type ContentCatalog,
   type ContextDetail,
   type ProjectContext,
@@ -86,13 +88,43 @@ function inspectRecipe(recipe: Recipe) {
   };
 }
 
+function majorOf(version: string | undefined): string | undefined {
+  if (!version) {
+    return undefined;
+  }
+  return version.split(".")[0];
+}
+
+function withVersion(label: string, version: string | undefined): string {
+  const major = majorOf(version);
+  return major ? `${label} ${major}` : label;
+}
+
 function formatProject(project: ProjectContext): string {
   const lines = [
     `Framework       ${project.framework ?? "unknown"}`,
     `Language        ${project.language ?? "unknown"}`,
     `Package manager ${project.packageManager ?? "unknown"}`,
   ];
-  const ai = [project.ai?.sdk, project.ai?.provider].filter(function present(value): value is string {
+  const ai = [
+    project.ai?.sdk
+      ? withVersion(project.ai.sdk, project.versions.ai)
+      : undefined,
+    project.ai?.provider
+      ? project.ai.provider
+          .split(", ")
+          .map(function versioned(name) {
+            if (name === "OpenRouter") {
+              return withVersion(
+                "OpenRouter provider",
+                project.versions["@openrouter/ai-sdk-provider"],
+              );
+            }
+            return name;
+          })
+          .join(", ")
+      : undefined,
+  ].filter(function present(value): value is string {
     return Boolean(value);
   });
   if (ai.length > 0) {
@@ -110,11 +142,57 @@ function formatProject(project: ProjectContext): string {
 }
 
 function formatNotes(notes: ProjectNote[]): string[] {
-  return notes.map(function line(note) {
-    if (note.status === "present") {
-      return `✓ Already using ${note.label}`;
+  const lines: string[] = [];
+  const detected = notes.filter(function keep(note) {
+    return note.status === "detected";
+  });
+  const unseen = notes.filter(function keep(note) {
+    return note.status === "not-detected";
+  });
+  const required = notes.filter(function keep(note) {
+    return note.status === "required";
+  });
+  if (detected.length > 0) {
+    lines.push("Detected in project");
+    for (const note of detected) {
+      lines.push(`✓ ${note.label}`);
     }
-    return `+ Need ${note.label}`;
+  }
+  if (unseen.length > 0) {
+    lines.push("Not detected");
+    for (const note of unseen) {
+      lines.push(`○ ${note.label}`);
+    }
+  }
+  if (required.length > 0) {
+    lines.push("Required by guide");
+    for (const note of required) {
+      lines.push(`○ ${note.label}`);
+    }
+  }
+  return lines;
+}
+
+function versionAtPrecision(detected: string, tested: string): string {
+  const parts = detected.split(".");
+  const width = tested.split(".").filter(function present(part) {
+    return part.length > 0;
+  }).length;
+  return parts.slice(0, width).join(".");
+}
+
+function formatCompatibility(items: CompatibilityItem[]): string[] {
+  return items.map(function line(item) {
+    if (item.status === "match") {
+      return `✓ ${item.label} ${item.tested}`;
+    }
+    if (item.status === "not-detected") {
+      return `○ ${item.label} not detected; guide verified with ${item.tested}`;
+    }
+    const seen = item.detected
+      ? `${item.label} ${versionAtPrecision(item.detected, item.tested)}`
+      : item.label;
+    return `! ${seen} → guide verified with ${item.label} ${item.tested}`;
   });
 }
 
@@ -142,14 +220,23 @@ function formatContext(context: BuiltContext): string {
   }
   if (context.topics.length > 0) {
     lines.push("CONCEPTS");
-    for (const topic of context.topics) {
-      lines.push(
-        topic.title,
-        topic.definition,
-        topic.mentalModel,
-        topic.commonMistake,
-        "",
-      );
+    const [primary, ...related] = context.topics;
+    if (primary) {
+      lines.push(primary.title, primary.definition);
+      if (primary.mentalModel) {
+        lines.push(primary.mentalModel);
+      }
+      if (primary.commonMistake) {
+        lines.push(primary.commonMistake);
+      }
+      lines.push("");
+    }
+    if (related.length > 0) {
+      lines.push("RELATED CONCEPTS");
+      for (const topic of related) {
+        lines.push(topic.title);
+      }
+      lines.push("");
     }
   }
   if (context.prompts.length > 0) {
@@ -163,7 +250,7 @@ function formatContext(context: BuiltContext): string {
           ? `Variables: ${primary.variables.join(", ")}`
           : "Variables: none",
         "",
-        primary.body,
+        primary.body ?? "",
         "",
       );
     }
@@ -177,16 +264,28 @@ function formatContext(context: BuiltContext): string {
   }
   if (context.guides.length > 0) {
     lines.push("GUIDES");
-    for (const guide of context.guides) {
-      lines.push(guide.title, guide.url);
-      if (guide.architecture.length > 0) {
-        lines.push(guide.architecture.join(" → "));
+    const [primary, ...related] = context.guides;
+    if (primary) {
+      lines.push(primary.title, primary.url);
+      if (primary.architecture.length > 0) {
+        lines.push(primary.architecture.join(" → "));
       }
-      for (const section of guide.sections) {
+      for (const section of primary.sections) {
         lines.push(section.title);
       }
       lines.push("");
     }
+    if (related.length > 0) {
+      lines.push("RELATED GUIDES");
+      for (const guide of related) {
+        lines.push(guide.title);
+      }
+      lines.push("");
+    }
+  }
+  if (context.compatibility && context.compatibility.length > 0) {
+    lines.push("COMPATIBILITY");
+    lines.push(...formatCompatibility(context.compatibility), "");
   }
   if (context.skills.length > 0) {
     lines.push("SKILLS");
@@ -200,6 +299,130 @@ function formatContext(context: BuiltContext): string {
       lines.push(`${step.title}: ${step.reason}`);
     }
     lines.push("");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function formatAgent(context: BuiltContext): string {
+  const lines = ["# PromptMarket Implementation Context", "", "## Goal", context.query, ""];
+  if (context.project) {
+    lines.push("## Detected project");
+    for (const label of [
+      context.project.framework,
+      context.project.language,
+      context.project.ai?.sdk
+        ? withVersion(context.project.ai.sdk, context.project.versions.ai)
+        : undefined,
+      context.project.ai?.provider,
+      ...(context.project.database ?? []),
+      ...(context.project.orm ?? []),
+    ]) {
+      if (label) {
+        lines.push(`- ${label}`);
+      }
+    }
+    lines.push("");
+  }
+  const topic = context.topics[0];
+  if (topic) {
+    lines.push("## Recommended pattern", topic.title, "", topic.definition, "");
+    if (topic.mentalModel) {
+      lines.push(topic.mentalModel, "");
+    }
+  }
+  const guide = context.guides[0];
+  if (guide) {
+    lines.push("## Recommended guide", guide.title, "");
+    if (guide.sections.length > 0) {
+      lines.push("Relevant sections:");
+      for (const section of guide.sections) {
+        lines.push(`- ${section.title}`);
+      }
+      lines.push("");
+    }
+  }
+  const prompt = context.prompts[0];
+  if (prompt) {
+    lines.push("## Prompt", prompt.title, "", prompt.body ?? prompt.description, "");
+  }
+  if (context.compatibility && context.compatibility.length > 0) {
+    lines.push("## Compatibility", ...formatCompatibility(context.compatibility), "");
+  }
+  const constraints = [
+    ...(topic?.commonMistake ? [topic.commonMistake] : []),
+    ...(prompt?.commonMistakes ?? []),
+  ].filter(function present(item) {
+    return item.trim().length > 0;
+  });
+  if (constraints.length > 0) {
+    lines.push("## Important constraints");
+    for (const constraint of constraints.slice(0, 4)) {
+      lines.push(`- ${constraint.replaceAll("\n", " ")}`);
+    }
+    lines.push("");
+  }
+  const references = [topic?.url, prompt?.url, guide?.url].filter(function present(url): url is string {
+    return Boolean(url);
+  });
+  if (references.length > 0) {
+    lines.push("## References");
+    for (const url of references) {
+      lines.push(`- ${url}`);
+    }
+    lines.push("");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function formatDoctor(
+  project: ProjectContext,
+  guides: ReturnType<typeof doctorGuides>,
+): string {
+  const lines = ["PromptMarket Doctor", "", "Project"];
+  for (const label of [project.framework, project.language, project.packageManager]) {
+    if (label) {
+      lines.push(label);
+    }
+  }
+  const ai = [
+    project.ai?.sdk ? withVersion(project.ai.sdk, project.versions.ai) : undefined,
+    project.ai?.provider?.split(", ").includes("OpenRouter")
+      ? withVersion(
+          "OpenRouter provider",
+          project.versions["@openrouter/ai-sdk-provider"],
+        )
+      : project.ai?.provider,
+  ].filter(function present(value): value is string {
+    return Boolean(value);
+  });
+  if (ai.length > 0) {
+    lines.push("", "AI", ...ai);
+  }
+  const database = [...(project.database ?? []), ...(project.orm ?? [])];
+  if (database.length > 0) {
+    lines.push("", "Database", ...database);
+  }
+  lines.push("");
+  if (guides.length === 0) {
+    lines.push(
+      "Relevant compatibility",
+      "No guide shares a detected AI, database, or ORM package.",
+      "",
+    );
+    return `${lines.join("\n")}\n`;
+  }
+  lines.push("Relevant compatibility", "");
+  for (const guide of guides) {
+    lines.push(guide.title, "");
+    if (guide.compatibility.length === 0) {
+      lines.push("No tested package lines on this guide.", "");
+      continue;
+    }
+    lines.push(...formatCompatibility(guide.compatibility), "");
+  }
+  const suggestion = guides[0]?.suggestion;
+  if (suggestion) {
+    lines.push("Suggested context:", suggestion, "");
   }
   return `${lines.join("\n")}\n`;
 }
@@ -370,6 +593,7 @@ export function createProgram(
     .argument("<query>", "Feature description")
     .option("--json", "Print deterministic JSON to stdout")
     .option("--detail <level>", "compact or full", "compact")
+    .option("--format <format>", "text, agent, or json", "text")
     .option("--max-items <count>", "Maximum items in each collection", "5")
     .option("--recipes <dir>", "Read recipes from a local directory")
     .option("--registry <url>", "Registry API base URL")
@@ -385,6 +609,7 @@ export function createProgram(
       options: {
         json?: boolean;
         detail?: string;
+        format?: string;
         maxItems?: string;
         recipes?: string;
         registry?: string;
@@ -402,6 +627,14 @@ export function createProgram(
           options.detail !== "full"
         ) {
           throw new Error('Expected --detail to be "compact" or "full"');
+        }
+        if (
+          options.format &&
+          options.format !== "text" &&
+          options.format !== "agent" &&
+          options.format !== "json"
+        ) {
+          throw new Error('Expected --format to be "text", "agent", or "json"');
         }
         const maxItems = Number(options.maxItems);
         const { catalog } = await openContent(options, deps);
@@ -423,11 +656,42 @@ export function createProgram(
             };
           }),
         });
-        if (options.json) {
+        if (options.json || options.format === "json") {
           io.stdout(json({ ok: true, ...context }));
           return;
         }
-        io.stdout(formatContext(context));
+        io.stdout(options.format === "agent" ? formatAgent(context) : formatContext(context));
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("doctor")
+    .description("Compare detected package versions with guide compatibility")
+    .argument("[dir]", "Project directory", ".")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function doctorAction(
+      dir: string,
+      options: {
+        json?: boolean;
+        offline?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const project = detectProject(dir);
+        const { catalog } = await openContent(options, deps);
+        const guides = doctorGuides(catalog, project);
+        if (options.json) {
+          io.stdout(json({ ok: true, project, guides }));
+          return;
+        }
+        io.stdout(formatDoctor(project, guides));
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
       }

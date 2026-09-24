@@ -42,7 +42,7 @@ export function registerSearchGuides(
     {
       title: "Search guides",
       description:
-        "Search PromptMarket guides for full-stack AI tutorials. Returns compact metadata and a URL, not the full tutorial. An empty query returns every guide.",
+        "Discovery fallback when build_context is not the right starting point. Returns guide metadata and a URL, not the full tutorial.",
       inputSchema,
       outputSchema,
       annotations,

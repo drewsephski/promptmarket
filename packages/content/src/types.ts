@@ -175,6 +175,7 @@ export type Guide = {
   estimatedTime?: string;
   order?: number;
   verifiedAt?: string;
+  testedWith?: Record<string, string>;
   prerequisites: string[];
   whatYouBuild: string[];
   whatYouLearn: string[];

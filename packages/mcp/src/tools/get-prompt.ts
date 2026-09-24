@@ -36,7 +36,7 @@ export function registerGetPrompt(
     {
       title: "Get prompt",
       description:
-        "Return one PromptMarket prompt, including the body to copy, its placeholders, and the lessons that explain it.",
+        "Drill down after build_context when you need one prompt body, its placeholders, and the lessons that explain it.",
       inputSchema,
       outputSchema,
       annotations,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildContext, loadContentCatalog } from "../src/index.js";
+import { buildContext, loadContentCatalog, type ProjectContext } from "../src/index.js";
 import { retrievalCases } from "./retrieval-cases.js";
 
 const TOP_K = 3;
@@ -13,7 +13,21 @@ describe("retrieval evals", function retrievalEvals() {
     const misses: string[] = [];
 
     for (const item of retrievalCases) {
-      const context = buildContext(catalog, { query: item.query, maxItems: TOP_K });
+      const project: ProjectContext | undefined = item.project
+        ? {
+            framework: item.project.framework,
+            language: item.project.language,
+            packages: item.project.packages ?? [],
+            versions: item.project.versions ?? {},
+            database: item.project.database,
+            orm: item.project.orm,
+          }
+        : undefined;
+      const context = buildContext(catalog, {
+        query: item.query,
+        maxItems: TOP_K,
+        project,
+      });
       const checks: Array<["guide" | "topic" | "prompt", string | undefined, string[]]> = [
         [
           "guide",
@@ -73,9 +87,9 @@ describe("retrieval evals", function retrievalEvals() {
 
     expect(retrievalCases.length).toBeGreaterThanOrEqual(25);
     expect(misses, misses.join("\n")).toEqual([]);
-    expect(guideTop1).toBeGreaterThan(0);
-    expect(topicTop1).toBeGreaterThan(0);
-    expect(promptTop1).toBeGreaterThan(0);
+    expect(guideTop1).toBe(1);
+    expect(topicTop1).toBeGreaterThanOrEqual(0.89);
+    expect(promptTop1).toBeGreaterThanOrEqual(0.93);
     expect(guideTop3).toBe(1);
     expect(topicTop3).toBe(1);
     expect(promptTop3).toBe(1);
