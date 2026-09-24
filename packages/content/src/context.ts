@@ -2,7 +2,7 @@ import { compatibilityFor, type CompatibilityItem } from "./compatibility.js";
 import { ContentError } from "./errors.js";
 import { rankContent, type ContentCatalog } from "./load.js";
 import { projectStackLabels, type ProjectContext } from "./project.js";
-import { rankItems, tokenize } from "./search.js";
+import { rankItems, tokenize, type Ranked } from "./search.js";
 import type {
   Guide,
   GuideSection,
@@ -18,6 +18,8 @@ const COMPACT_SECTION_LIMIT = 2;
 const CONTEXT_NOISE = new Set(["building", "build", "feature", "features"]);
 
 export type ContextDetail = "compact" | "full";
+
+export type ContextMode = "build" | "debug" | "decide" | "upgrade" | "learn";
 
 export type ContextSkillInput = {
   name: string;
@@ -131,6 +133,7 @@ export type RelatedItem = {
 
 export type BuiltContext = {
   query: string;
+  mode: ContextMode;
   topics: ContextTopic[];
   prompts: ContextPrompt[];
   guides: ContextGuide[];
@@ -250,20 +253,106 @@ function orderForContext<T>(
     });
 }
 
+const MODE_HINTS: Record<ContextMode, readonly string[]> = {
+  build: ["schema", "build", "embed", "retrieve", "store", "enable", "chunk"],
+  debug: ["debug", "error", "threshold", "discard", "common"],
+  decide: ["when", "learn", "why", "choose"],
+  upgrade: ["version", "upgrade", "migrate", "install", "dependency"],
+  learn: ["what", "learn", "how", "works"],
+};
+
+export function detectContextMode(query: string): ContextMode {
+  if (
+    /\b(broken|error|errors|irrelevant|not working|does not work|doesn't work|keeps|nothing changed|failed|wrong)\b/i.test(
+      query,
+    ) ||
+    (/\bwhy\b/i.test(query) && !/\b(build|add|implement)\b/i.test(query))
+  ) {
+    return "debug";
+  }
+  if (/\b(should i|should this|should we|versus|\bvs\b|which)\b/i.test(query)) {
+    return "decide";
+  }
+  if (/\b(upgrade|migrate|migration|version)\b/i.test(query)) {
+    return "upgrade";
+  }
+  if (/\b(learn|teach me|what is|what are|explain)\b/i.test(query)) {
+    return "learn";
+  }
+  return "build";
+}
+
+function guideStronglyWins(ranked: Ranked<Guide>[], guide: Guide): boolean {
+  const row = ranked.find(function same(item) {
+    return item.item.slug === guide.slug;
+  });
+  if (!row || row.score < 8) {
+    return false;
+  }
+  const next = ranked.reduce(function max(highest, item) {
+    if (item.item.slug === guide.slug) {
+      return highest;
+    }
+    return Math.max(highest, item.score);
+  }, 0);
+  return row.score - next >= 3;
+}
+
+function coherentTopics(
+  focused: string,
+  rankedTopics: Ranked<LearnTopic>[],
+  ordered: LearnTopic[],
+  guide: Guide | undefined,
+  rankedGuides: Ranked<Guide>[],
+  maxItems: number,
+): LearnTopic[] {
+  if (!guide || !guideStronglyWins(rankedGuides, guide)) {
+    return ordered;
+  }
+  const primary = ordered[0];
+  if (primary && guide.relatedTopics.includes(primary.slug)) {
+    return ordered;
+  }
+  const related = rankedTopics.filter(function linked(row) {
+    return guide.relatedTopics.includes(row.item.slug) && row.score > 0;
+  });
+  const best = orderForContext(
+    focused,
+    related,
+    function title(topic) {
+      return topic.title;
+    },
+    1,
+  )[0];
+  if (!best) {
+    return ordered;
+  }
+  return [best, ...ordered.filter(function other(topic) {
+    return topic.slug !== best.slug;
+  })].slice(0, maxItems);
+}
+
 function relevantSections(
   guide: Guide,
   query: string,
   detail: ContextDetail,
+  mode: ContextMode,
 ): GuideSection[] {
   if (detail === "full") {
     return guide.sections;
   }
   const tokens = tokenize(query);
+  const hints = MODE_HINTS[mode];
   const scored = guide.sections.map(function score(section, index) {
     const haystack = `${section.title}\n${section.markdown}`.toLowerCase();
-    const matches = tokens.reduce(function count(total, token) {
-      return haystack.includes(token) ? total + 1 : total;
-    }, 0);
+    const title = section.title.toLowerCase();
+    const matches =
+      tokens.reduce(function count(total, token) {
+        return haystack.includes(token) ? total + 1 : total;
+      }, 0) +
+      hints.reduce(function bonus(total, hint) {
+        return title.includes(hint) ? total + 8 : total;
+      }, 0);
     return { index, matches };
   });
   const winners = scored
@@ -373,6 +462,7 @@ function presentGuide(
   origin: string,
   detail: ContextDetail,
   primary: boolean,
+  mode: ContextMode,
 ): ContextGuide {
   if (detail === "compact" && !primary) {
     return {
@@ -393,7 +483,7 @@ function presentGuide(
     difficulty: guide.difficulty,
     stack: guide.stack,
     architecture: guide.architecture,
-    sections: relevantSections(guide, query, detail).map(
+    sections: relevantSections(guide, query, detail, mode).map(
       function section(item) {
         return {
           id: item.id,
@@ -566,6 +656,7 @@ export function buildContext(
   const detail = assertDetail(options.detail);
   const origin = options.origin ?? CONTENT_ORIGIN;
   const query = options.query;
+  const mode = detectContextMode(query);
   const tokens = tokenize(query).filter(function keep(token) {
     return !CONTEXT_NOISE.has(token);
   });
@@ -593,10 +684,18 @@ export function buildContext(
       return stackOverlap(guide.stack, projectLabels).length;
     },
   );
+  const anchoredTopics = coherentTopics(
+    focused,
+    ranked.topics,
+    topics,
+    guides[0],
+    ranked.guides,
+    maxItems,
+  );
   const prompts = assemblePrompts(
     catalog,
     focused,
-    topics[0],
+    anchoredTopics[0],
     guides[0],
     maxItems,
   );
@@ -614,14 +713,14 @@ export function buildContext(
     },
     maxItems,
   );
-  const presentedTopics = topics.map(function present(topic, index) {
+  const presentedTopics = anchoredTopics.map(function present(topic, index) {
     return presentTopic(topic, origin, detail, index === 0);
   });
   const presentedPrompts = prompts.map(function present(prompt, index) {
     return presentPrompt(prompt, origin, detail, index === 0);
   });
   const presentedGuides = guides.map(function present(guide, index) {
-    return presentGuide(guide, focused, origin, detail, index === 0);
+    return presentGuide(guide, focused, origin, detail, index === 0, mode);
   });
   const primaryTopic = presentedTopics[0];
   const primaryPrompt = presentedPrompts[0];
@@ -666,6 +765,7 @@ export function buildContext(
       : undefined;
   return {
     query,
+    mode,
     topics: presentedTopics,
     prompts: presentedPrompts,
     guides: presentedGuides,

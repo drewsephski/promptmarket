@@ -8,7 +8,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "./ui/select";
 
 const ANY = "__any";
@@ -35,6 +34,10 @@ export function FilterSelect({
 }: FilterSelectProps) {
   const [selected, setSelected] = useState(value || ANY);
   const fieldId = `${name}-filter`;
+  const current = options.find(function match(option) {
+    return option.value === selected;
+  });
+  const shown = current?.label ?? emptyLabel;
 
   return (
     <div className="filter-field">
@@ -44,7 +47,7 @@ export function FilterSelect({
       )}
       <Select value={selected} onValueChange={setSelected}>
         <SelectTrigger id={fieldId} aria-label={label}>
-          <SelectValue />
+          <span className="pm-select-value">{shown}</span>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ANY}>{emptyLabel}</SelectItem>

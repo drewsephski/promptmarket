@@ -1,10 +1,12 @@
 import { Command, CommanderError } from "commander";
 import {
   buildContext,
+  buildPlan,
   ContentNotFoundError,
   detectProject,
   doctorGuides,
   formatAgentContext,
+  formatPlan,
   formatCompatibility,
   formatContextText,
   otherProjectLabels,
@@ -446,6 +448,45 @@ export function createProgram(
             ? formatAgentContext(context)
             : formatContextText(context),
         );
+      } catch (error) {
+        writeFailure(io, state, Boolean(options.json), error);
+      }
+    });
+
+  program
+    .command("plan")
+    .description(
+      "Turn a feature description into an implementation plan without calling a model",
+    )
+    .argument("<query>", "Feature to plan, in plain language")
+    .option("--json", "Print deterministic JSON to stdout")
+    .option("--project <dir>", "Tailor the plan to a project directory")
+    .option("--offline", "Use the bundled content snapshot")
+    .option("--refresh", "Bypass the content cache freshness window")
+    .option("--content-api <url>", "Content API base URL")
+    .option("--content <dir>", "Read lessons, prompts, and guides from a directory")
+    .action(async function planAction(
+      query: string,
+      options: {
+        json?: boolean;
+        project?: string;
+        offline?: boolean;
+        refresh?: boolean;
+        contentApi?: string;
+        content?: string;
+      },
+    ) {
+      try {
+        const { catalog } = await openContent(options, deps);
+        const project = options.project
+          ? detectProject(options.project)
+          : undefined;
+        const plan = buildPlan(catalog, { query, project });
+        if (options.json) {
+          io.stdout(json({ ok: true, ...plan }));
+          return;
+        }
+        io.stdout(formatPlan(plan));
       } catch (error) {
         writeFailure(io, state, Boolean(options.json), error);
       }

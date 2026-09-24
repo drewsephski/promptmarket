@@ -74,7 +74,8 @@ pnpm dlx @promptmarket/cli setup cursor --check`}
         <p className="note">Cursor remote MCP config:</p>
         <CommandBlock command={cursorConfig} label="Copy Cursor MCP config" />
         <p className="note">
-          Primary tools: <code>build_context</code>, <code>search_prompts</code>
+          Primary tools: <code>build_context</code>, <code>build_plan</code>,{" "}
+          <code>search_prompts</code>
           , <code>get_prompt</code>, <code>search_learn</code>,{" "}
           <code>get_learn_topic</code>, <code>search_guides</code>,{" "}
           <code>get_guide</code>, and <code>recommend_prompt</code>.{" "}
@@ -96,6 +97,7 @@ pnpm dlx @promptmarket/cli setup cursor --check`}
           command={`pnpm dlx @promptmarket/cli detect
 pnpm dlx @promptmarket/cli doctor
 pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project . --format agent
+pnpm dlx @promptmarket/cli plan "add RAG over our documentation" --project .
 pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag

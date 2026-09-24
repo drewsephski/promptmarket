@@ -9,10 +9,12 @@ export {
 } from "./compatibility.js";
 export {
   buildContext,
+  detectContextMode,
   CONTENT_ORIGIN,
   type BuildContextOptions,
   type BuiltContext,
   type ContextDetail,
+  type ContextMode,
   type ContextGuide,
   type ContextMatch,
   type ContextNextStep,
@@ -30,6 +32,7 @@ export {
   formatCompatibility,
   formatContextText,
   formatNotes,
+  formatPlan,
 } from "./format.js";
 export { contentMeta, contentVersionOf, type ContentMeta } from "./meta.js";
 export {
@@ -52,6 +55,13 @@ export {
   type ContentCatalog,
 } from "./load.js";
 export { detectPlaceholders } from "./placeholders.js";
+export {
+  buildPlan,
+  type BuildPlanOptions,
+  type ImplementationPlan,
+  type PlanReference,
+  type PlanStep,
+} from "./plan.js";
 export { rankItems, tokenize, type Ranked } from "./search.js";
 export {
   CATEGORY_LABELS,

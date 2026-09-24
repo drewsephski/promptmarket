@@ -929,6 +929,7 @@ describe("promptmarket cli", function promptmarketCli() {
     );
     expect(rule).toContain("alwaysApply: false");
     expect(rule).toContain("build_context");
+    expect(rule).toContain("build_plan");
 
     const again = captureIo();
     const againCode = await run(

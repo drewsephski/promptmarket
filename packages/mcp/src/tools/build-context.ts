@@ -121,6 +121,7 @@ const relatedSchema = z.object({
 
 const outputSchema = z.object({
   query: z.string(),
+  mode: z.enum(["build", "debug", "decide", "upgrade", "learn"]),
   topics: z.array(topicSchema),
   prompts: z.array(promptSchema),
   guides: z.array(guideSchema),

@@ -62,6 +62,12 @@ relatedPrompts:
   - answer-with-citations
   - search-query-rewriter
   - rag-context-compressor
+verification:
+  - A known question retrieves the expected document
+  - An unsupported question does not hallucinate an answer
+  - API credentials remain server-only
+  - Stored and query embeddings use the same model
+  - Retrieved chunks are visible while debugging
 ---
 
 ## What we're building

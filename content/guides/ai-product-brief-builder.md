@@ -56,6 +56,10 @@ relatedTopics:
 relatedPrompts:
   - structured-data-extractor
   - json-output-system
+verification:
+  - A product idea returns a brief that matches the schema
+  - Invalid model output is rejected instead of saved
+  - The OpenRouter key stays server-side
 ---
 
 ## What we're building

@@ -232,6 +232,17 @@ function requireStringList(
   });
 }
 
+function optionalStringList(
+  record: Record<string, unknown>,
+  key: string,
+  file: string,
+): string[] {
+  if (!(key in record) || record[key] == null) {
+    return [];
+  }
+  return requireStringList(record, key, file);
+}
+
 function requireSlugList(
   record: Record<string, unknown>,
   key: string,
@@ -610,6 +621,7 @@ function loadGuide(filePath: string): Guide {
       "architecture",
       "relatedTopics",
       "relatedPrompts",
+      "verification",
     ],
     file,
   );
@@ -646,6 +658,7 @@ function loadGuide(filePath: string): Guide {
     architecture: requireStringList(data, "architecture", file),
     relatedTopics: requireSlugList(data, "relatedTopics", file, false),
     relatedPrompts: requireSlugList(data, "relatedPrompts", file, false),
+    verification: optionalStringList(data, "verification", file),
     sections: guideSections(body, file),
     href: `/guides/${slug}`,
   };

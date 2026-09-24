@@ -460,8 +460,13 @@ input {
 }
 
 .pill:active {
-  transform: scale(0.98);
+  transform: scale(0.96);
   transition-duration: 90ms, 700ms;
+}
+
+.pill[data-copied="true"] {
+  background: var(--sage);
+  transition-duration: 90ms, 180ms;
 }
 
 .pill-copy-label {
@@ -1454,6 +1459,16 @@ textarea.control {
   margin-top: 1.25rem;
 }
 
+.context-actions a.pill {
+  color: #fff;
+  text-decoration: none;
+  padding: 0.62rem 1.05rem;
+}
+
+.context-actions a.pill:hover {
+  color: #fff;
+}
+
 .context-filters {
   gap: 1.15rem;
 }
@@ -1479,12 +1494,29 @@ textarea.control {
   font-size: 0.78rem;
 }
 
-.filter-field input:not([type="hidden"]) {
+.filter-field input:not([type="hidden"]),
+.filter-field select {
   width: 100%;
   border: 1px solid var(--hairline);
   background: var(--paper-raise);
   border-radius: 0.9rem;
   padding: 0.7rem 0.85rem;
+  font: inherit;
+  color: inherit;
+}
+
+.filter-field select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 2.1rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3E%3Cpath d='M2.25 4.35L6 8.05L9.75 4.35' stroke='%236d655b' stroke-width='1'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+}
+
+.filter-field select:focus-visible {
+  border-color: rgba(196, 73, 29, 0.45);
+  outline: none;
 }
 
 .pm-select {
@@ -1505,8 +1537,16 @@ textarea.control {
   border-color: rgba(196, 73, 29, 0.45);
 }
 
+.pm-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pm-select-icon {
   display: inline-flex;
+  flex: none;
   color: var(--muted);
 }
 

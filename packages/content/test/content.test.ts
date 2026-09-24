@@ -6,6 +6,7 @@ import {
   ContentError,
   assertDistinctSlugs,
   buildContext,
+  buildPlan,
   contentMeta,
   detectPlaceholders,
   handleContentRequest,
@@ -347,6 +348,71 @@ Hello {{input}}
         return step.kind;
       }),
     ).toEqual(expect.arrayContaining(["topic", "prompt", "guide"]));
+  });
+
+  test("keeps a build query coherent when the guide outranks an unrelated topic", function coherentRag() {
+    const catalog = loadContentCatalog();
+    const context = buildContext(catalog, {
+      query: "Add RAG over internal documentation...",
+    });
+
+    expect(context.primary).toEqual({
+      topic: "rag",
+      prompt: "rag-grounded-answer",
+      guide: "rag-knowledge-base",
+    });
+    expect(context.mode).toBe("build");
+  });
+
+  test("builds an implementation plan from the RAG guide", function plansRag() {
+    const catalog = loadContentCatalog();
+    const plan = buildPlan(catalog, {
+      query: "Add RAG over internal documentation...",
+      project: {
+        framework: "Next.js",
+        language: "TypeScript",
+        packages: ["next", "ai", "@openrouter/ai-sdk-provider", "drizzle-orm"],
+        versions: { next: "16.0.0", ai: "7.0.0" },
+        ai: { sdk: "Vercel AI SDK", provider: "OpenRouter" },
+        database: ["Neon"],
+        orm: ["Drizzle"],
+      },
+    });
+
+    expect(plan.pattern.topic).toBe("RAG");
+    expect(plan.guide?.slug).toBe("rag-knowledge-base");
+    expect(plan.guide?.verifiedAt).toBe("2026-09-23");
+    expect(plan.architecture.length).toBeGreaterThan(3);
+    expect(plan.prompt?.name).toBe("rag-grounded-answer");
+    expect(plan.verification[0]).toBe(
+      "A known question retrieves the expected document",
+    );
+    expect(plan.steps.map(function titleOf(step) {
+      return step.title;
+    })).toContain("Enable pgvector");
+    expect(plan.steps.map(function titleOf(step) {
+      return step.title;
+    })).not.toContain("Create the Next.js app");
+    expect(plan.requirements.some(function required(note) {
+      return note.label === "pgvector" && note.status === "required";
+    })).toBe(true);
+  });
+
+  test("targets debug sections without changing the concept", function debugSections() {
+    const catalog = loadContentCatalog();
+    const context = buildContext(catalog, {
+      query: "my RAG search keeps retrieving irrelevant chunks",
+      detail: "compact",
+    });
+
+    expect(context.mode).toBe("debug");
+    expect(context.guides[0]?.slug).toBe("rag-knowledge-base");
+    expect(context.topics[0]?.slug).toBe("rag");
+    expect(
+      context.guides[0]?.sections.map(function titleOf(section) {
+        return section.title;
+      }),
+    ).toContain("Debug a bad answer");
   });
 
   test("assembles tool-calling context for the Convex guide", function assemblesTools() {

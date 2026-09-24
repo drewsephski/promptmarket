@@ -1,4 +1,5 @@
 import { buildContext, type ContextDetail } from "./context.js";
+import { buildPlan } from "./plan.js";
 import { ContentError, ContentNotFoundError } from "./errors.js";
 import type { ContentCatalog } from "./load.js";
 import type { ContentMeta } from "./meta.js";
@@ -180,6 +181,18 @@ export function handleContentRequest(
           prompts: catalog.searchPrompts(query),
           guides: catalog.searchGuides(query),
         },
+        200,
+        etag,
+      );
+    }
+
+    if (pathname === "/plan") {
+      const query = params.get("q") ?? "";
+      return jsonBody(
+        buildPlan(catalog, {
+          query,
+          project: parseProject(params.get("project")),
+        }),
         200,
         etag,
       );

@@ -182,6 +182,7 @@ export type Guide = {
   architecture: string[];
   relatedTopics: string[];
   relatedPrompts: string[];
+  verification: string[];
   sections: GuideSection[];
   href: string;
 };

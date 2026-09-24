@@ -9,6 +9,7 @@ pnpm dlx @promptmarket/cli setup cursor --write
 pnpm dlx @promptmarket/cli detect
 pnpm dlx @promptmarket/cli doctor
 pnpm dlx @promptmarket/cli context "add RAG over our documentation" --project . --format agent
+pnpm dlx @promptmarket/cli plan "add RAG over our documentation" --project .
 pnpm dlx @promptmarket/cli search "structured extraction"
 pnpm dlx @promptmarket/cli show structured-data-extractor
 pnpm dlx @promptmarket/cli learn rag

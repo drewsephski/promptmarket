@@ -1,5 +1,6 @@
 import type { CompatibilityItem } from "./compatibility.js";
 import type { BuiltContext, ProjectNote } from "./context.js";
+import type { ImplementationPlan } from "./plan.js";
 import type { ProjectContext } from "./project.js";
 
 function majorOf(version: string | undefined): string | undefined {
@@ -172,6 +173,54 @@ export function formatContextText(context: BuiltContext): string {
       lines.push(`${step.title}: ${step.reason}`);
     }
     lines.push("");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function formatPlan(plan: ImplementationPlan): string {
+  const lines = ["Goal", plan.goal, ""];
+  if (plan.project) {
+    lines.push("Detected project");
+    for (const label of projectLines(plan.project)) {
+      lines.push(label);
+    }
+    lines.push("");
+  }
+  lines.push("Recommended pattern", plan.pattern.topic, plan.pattern.reason, "");
+  if (plan.architecture.length > 0) {
+    lines.push("Recommended architecture", plan.architecture.join(" → "), "");
+  }
+  if (plan.requirements.length > 0) {
+    lines.push(...formatNotes(plan.requirements), "");
+  }
+  if (plan.steps.length > 0) {
+    lines.push("Implementation");
+    plan.steps.forEach(function line(step, index) {
+      lines.push(`${index + 1}. ${step.title}`);
+      lines.push(step.guidance);
+    });
+    lines.push("");
+  }
+  if (plan.prompt) {
+    lines.push("Prompt", plan.prompt.title, plan.prompt.body ?? plan.prompt.description, "");
+  }
+  if (plan.verification.length > 0) {
+    lines.push("Verification");
+    for (const item of plan.verification) {
+      lines.push(`□ ${item}`);
+    }
+    lines.push("");
+  }
+  if (plan.guide) {
+    lines.push(
+      "Reference",
+      plan.guide.title,
+      plan.guide.verifiedAt ? `Verified: ${plan.guide.verifiedAt}` : plan.guide.slug,
+      "",
+    );
+  }
+  if (plan.compatibility.length > 0) {
+    lines.push("Compatibility", ...formatCompatibility(plan.compatibility), "");
   }
   return `${lines.join("\n")}\n`;
 }

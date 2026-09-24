@@ -1,7 +1,9 @@
 import {
   buildContext,
+  buildPlan,
   formatAgentContext,
   formatContextText,
+  formatPlan,
   loadContentCatalog,
 } from "@promptmarket/content";
 import type { Metadata } from "next";
@@ -56,14 +58,16 @@ export default async function ContextPage({ searchParams }: ContextPageProps) {
   const query = searchQuery(params.q).trim();
   const filters = filtersFrom(params);
   const project = projectFromFilters(filters);
+  const catalog = loadContentCatalog();
   const context = query
-    ? buildContext(loadContentCatalog(), {
+    ? buildContext(catalog, {
         query,
         project,
         detail: "compact",
         maxItems: 4,
       })
     : undefined;
+  const plan = query ? buildPlan(catalog, { query, project }) : undefined;
   const topic = context?.topics[0];
   const guide = context?.guides[0];
   const prompt = context?.prompts[0];
@@ -153,6 +157,44 @@ export default async function ContextPage({ searchParams }: ContextPageProps) {
             <a className="pill" href="/docs#cursor">
               Set up MCP
             </a>
+          </div>
+        </Bezel>
+      ) : null}
+
+      {plan && plan.steps.length > 0 ? (
+        <Bezel coreClassName="panel">
+          <p className="eyebrow">Implementation plan</p>
+          <h2>{plan.pattern.topic}</h2>
+          <p>{plan.pattern.reason}</p>
+          {plan.architecture.length > 0 ? (
+            <p>{plan.architecture.join(" → ")}</p>
+          ) : null}
+          <ol>
+            {plan.steps.map(function renderStep(step) {
+              return (
+                <li key={step.sourceSection ?? step.title}>
+                  <strong>{step.title}</strong>
+                  <p>{step.guidance}</p>
+                </li>
+              );
+            })}
+          </ol>
+          {plan.verification.length > 0 ? (
+            <>
+              <h3>Verification</h3>
+              <ul>
+                {plan.verification.map(function renderCheck(item) {
+                  return <li key={item}>{item}</li>;
+                })}
+              </ul>
+            </>
+          ) : null}
+          <div className="context-actions">
+            <CopyButton
+              value={formatPlan(plan)}
+              label="Copy plan"
+              text="Copy plan"
+            />
           </div>
         </Bezel>
       ) : null}

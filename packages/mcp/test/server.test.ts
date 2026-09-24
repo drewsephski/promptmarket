@@ -168,6 +168,11 @@ describe("promptmarket mcp", function promptmarketMcp() {
         destructiveHint: false,
       },
       {
+        name: "build_plan",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      {
         name: "search_prompts",
         readOnlyHint: true,
         destructiveHint: false,

@@ -15,14 +15,13 @@ alwaysApply: false
 When the task involves AI application architecture, prompting, RAG,
 structured outputs, tool calling, agents, evals, or related features:
 
-1. Call the PromptMarket \`build_context\` MCP tool before implementation.
-2. Include the current project's framework, package names, and versions when known.
-3. Treat the user's requested goal as more important than the existing stack.
-4. Use the primary guide/prompt/lesson as reference context.
-5. Call \`get_guide\`, \`get_prompt\`, or \`get_learn_topic\` only when more detail is needed.
-6. Inspect the actual repository before modifying code.
-7. Prefer existing project conventions over blindly copying tutorial code.
-8. Do not claim packages, services, environment variables, or database features exist unless verified.
+1. Call \`build_context\` with project metadata.
+2. If implementation work is required, call \`build_plan\`.
+3. Inspect the actual repository.
+4. Adapt the plan to existing architecture.
+5. Implement using repository conventions.
+6. Use PromptMarket verification criteria before declaring completion.
+7. Never assume external services or environment configuration exist merely because the guide requires them.
 `;
 
 export type SetupMode = "dry-run" | "write" | "remove" | "check";

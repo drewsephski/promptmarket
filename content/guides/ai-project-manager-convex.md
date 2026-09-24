@@ -56,6 +56,10 @@ relatedTopics:
 relatedPrompts:
   - tool-selection-router
   - safe-tool-calling-system
+verification:
+  - The assistant creates a task that appears in the list
+  - A tool call updates the same task the user named
+  - The model cannot write to Convex without a tool
 ---
 
 ## What we're building
