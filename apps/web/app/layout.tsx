@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     template: "%s · PromptMarket",
   },
   description:
-    "Learn AI engineering, then copy the prompt patterns into your app.",
+    "Learn AI engineering, then resolve a feature into a pattern, plan, and checks.",
   openGraph: {
     siteName: "PromptMarket",
     type: "website",

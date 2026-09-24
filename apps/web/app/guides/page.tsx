@@ -1,6 +1,5 @@
 import { difficultyLabel, loadContentCatalog } from "@promptmarket/content";
 import type { Metadata } from "next";
-import { Bezel } from "../../components/bezel";
 import { pageMetadata } from "../../lib/present";
 
 export const metadata: Metadata = pageMetadata(
@@ -20,8 +19,31 @@ const upcoming = [
   },
 ];
 
-function conceptLabel(concept: string): string {
-  return concept.replaceAll("-", " ");
+const PATTERN_LABELS: Record<string, string> = {
+  rag: "RAG",
+  "structured-outputs": "Structured outputs",
+  "tool-calling": "Tool calling",
+};
+
+function patternOf(concepts: string[]): string {
+  const match = concepts.find(function known(concept) {
+    return concept in PATTERN_LABELS;
+  });
+  return PATTERN_LABELS[match ?? ""] ?? concepts[0]?.replaceAll("-", " ") ?? "Guide";
+}
+
+function timeLabel(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return value.replace(" minutes", " min").replace(/^(\d+)/, "~$1");
+}
+
+function stackLine(stack: string[]): string {
+  return stack
+    .filter(function skip(item) {
+      return item !== "TypeScript";
+    })
+    .slice(0, 3)
+    .join(" · ");
 }
 
 export default function GuidesPage() {
@@ -39,28 +61,16 @@ export default function GuidesPage() {
       <div className="catalog">
         {guides.map(function renderGuide(guide) {
           return (
-            <a className="entry" href={guide.href} key={guide.slug}>
-              <Bezel coreClassName="entry-core">
-                <div className="entry-body">
-                  <h2>{guide.title}</h2>
-                  <p>{guide.description}</p>
-                  <div className="entry-meta">
-                    <span className="tag">
-                      {difficultyLabel(guide.difficulty)}
-                    </span>
-                    {guide.stack.map(function renderStack(item) {
-                      return (
-                        <span className="tag" key={item}>
-                          {item}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <p className="note">
-                    {guide.concepts.map(conceptLabel).join(" · ")}
-                  </p>
-                </div>
-              </Bezel>
+            <a className="prompt-card" href={guide.href} key={guide.slug}>
+              <p className="workflow-kicker">{patternOf(guide.concepts)}</p>
+              <h2>{guide.title}</h2>
+              <p>{guide.description}</p>
+              <span>
+                {[difficultyLabel(guide.difficulty), timeLabel(guide.estimatedTime)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+              <span className="prompt-stack">{stackLine(guide.stack)}</span>
             </a>
           );
         })}

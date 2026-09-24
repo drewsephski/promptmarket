@@ -4,25 +4,13 @@ import {
   loadContentCatalog,
 } from "@promptmarket/content";
 import type { Metadata } from "next";
-import { Bezel } from "../../components/bezel";
-import { PromptFilters } from "../../components/filter-select";
-import { ArrowMark } from "../../components/marks";
-import { catalogRegistry } from "../../lib/catalog";
-import {
-  filterGallery,
-  isPromptCategory,
-  promptGalleryItem,
-  skillGalleryItem,
-  type GalleryItem,
-} from "../../lib/gallery";
+import { isPromptCategory } from "../../lib/gallery";
 import { pageMetadata, searchQuery } from "../../lib/present";
 
 interface PromptsPageProps {
   searchParams: Promise<{
     q?: string | string[];
     category?: string | string[];
-    kind?: string | string[];
-    difficulty?: string | string[];
   }>;
 }
 
@@ -37,12 +25,8 @@ export async function generateMetadata({
   const query = new URLSearchParams();
   const q = first(params.q);
   const category = first(params.category);
-  const kind = first(params.kind);
-  const difficulty = first(params.difficulty);
   if (q) query.set("q", q);
   if (category) query.set("category", category);
-  if (kind) query.set("kind", kind);
-  if (difficulty) query.set("difficulty", difficulty);
   const suffix = query.size > 0 ? `?${query.toString()}` : "";
   return pageMetadata(
     "Prompts",
@@ -51,88 +35,92 @@ export async function generateMetadata({
   );
 }
 
+function chipHref(category: string, q: string): string {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  if (q) params.set("q", q);
+  const text = params.toString();
+  return text ? `/prompts?${text}` : "/prompts";
+}
+
 export default async function PromptsPage({ searchParams }: PromptsPageProps) {
   const params = await searchParams;
   const q = first(params.q);
   const category = first(params.category);
-  const kind = first(params.kind);
-  const difficulty = first(params.difficulty);
   const selectedCategory = isPromptCategory(category) ? category : "";
   const catalog = loadContentCatalog();
-  const recipes = await catalogRegistry().list();
-  const items = [
-    ...catalog.prompts.map(promptGalleryItem),
-    ...recipes.map(skillGalleryItem),
-  ];
-  const results = filterGallery(items, {
-    query: q,
-    category: selectedCategory,
-    kind,
-    difficulty,
+  const prompts = catalog.prompts.filter(function byCategory(prompt) {
+    if (!selectedCategory) return true;
+    return prompt.category === selectedCategory;
   });
+  const needle = q.toLowerCase();
+  const results = needle
+    ? prompts.filter(function byQuery(prompt) {
+        const haystack = `${prompt.title} ${prompt.description} ${prompt.slug}`.toLowerCase();
+        return haystack.includes(needle);
+      })
+    : prompts;
 
   return (
-    <main className="docs">
+    <main className="docs product">
       <div className="hero-copy">
-        <p className="eyebrow">Gallery</p>
-        <h1>Prompts for real AI features.</h1>
+        <p className="eyebrow">Prompts</p>
+        <h1>Prompt patterns</h1>
         <p className="lede">
-          Patterns you can copy. Skills are separate, for coding agents.
+          Copy a pattern into your app. Agent procedures live on{" "}
+          <a href="/recipes">Skills</a>.
         </p>
       </div>
-      <PromptFilters
-        query={q}
-        category={selectedCategory}
-        kind={kind === "skill" || kind === "prompt" ? kind : ""}
-        difficulty={
-          difficulty === "beginner" ||
-          difficulty === "intermediate" ||
-          difficulty === "advanced"
-            ? difficulty
-            : ""
-        }
-        categories={PROMPT_CATEGORIES.map(function renderCategory(item) {
-          return { value: item, label: CATEGORY_LABELS[item] };
+      <form className="prompt-search" action="/prompts" method="get">
+        {selectedCategory ? (
+          <input type="hidden" name="category" value={selectedCategory} />
+        ) : null}
+        <label>
+          <span className="sr-only">Search prompts</span>
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Search prompts..."
+            aria-label="Search prompts"
+          />
+        </label>
+      </form>
+      <nav className="chip-row" aria-label="Categories">
+        <a href={chipHref("", q)} aria-current={selectedCategory ? undefined : "page"}>
+          All
+        </a>
+        {PROMPT_CATEGORIES.filter(function skipCoding(item) {
+          return item !== "coding";
+        }).map(function renderCategory(item) {
+          return (
+            <a
+              key={item}
+              href={chipHref(item, q)}
+              aria-current={selectedCategory === item ? "page" : undefined}
+            >
+              {CATEGORY_LABELS[item]}
+            </a>
+          );
         })}
-      />
+      </nav>
       {results.length === 0 ? (
-        <p className="empty">
-          Nothing matched. Try a broader search, or clear a filter.
-        </p>
+        <p className="empty">Nothing matched. Try a broader search.</p>
       ) : (
-        <div className="catalog catalog-grid">
-          {results.map(function renderItem(item) {
+        <div className="prompt-list">
+          {results.map(function renderPrompt(prompt) {
             return (
-              <GalleryCard item={item} key={`${item.kind}-${item.slug}`} />
+              <a className="prompt-card" href={prompt.href} key={prompt.slug}>
+                <h2>{prompt.title}</h2>
+                <p>{prompt.description}</p>
+                <span>
+                  {CATEGORY_LABELS[prompt.category]}
+                  {prompt.difficulty ? ` · ${prompt.difficulty}` : ""}
+                </span>
+              </a>
             );
           })}
         </div>
       )}
     </main>
-  );
-}
-
-function GalleryCard({ item }: { item: GalleryItem }) {
-  return (
-    <a className="entry" href={item.href}>
-      <Bezel coreClassName="entry-core">
-        <div className="entry-body">
-          <h3>{item.title}</h3>
-          <p>{item.description}</p>
-          <div className="entry-meta">
-            <span className="tag">
-              {item.kind === "skill" ? "Skill" : "Prompt"}
-            </span>
-            <span className="tag">{item.categoryLabel}</span>
-            {item.difficulty ? (
-              <span className="tag">{item.difficulty}</span>
-            ) : null}
-          </div>
-        </div>
-        <span className="pill-mark entry-arrow" aria-hidden="true">
-          <ArrowMark />
-        </span>
-      </Bezel>
-    </a>
   );
 }

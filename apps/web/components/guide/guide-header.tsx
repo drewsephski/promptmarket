@@ -17,6 +17,21 @@ function FactList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+function patternLabel(concepts: string[]): string {
+  const labels: Record<string, string> = {
+    rag: "RAG",
+    "structured-outputs": "Structured outputs",
+    "tool-calling": "Tool calling",
+  };
+  const match = concepts.find(function known(concept) {
+    return concept in labels;
+  });
+  if (match && labels[match]) return labels[match];
+  const first = concepts[0];
+  if (!first) return "Guide";
+  return first.replaceAll("-", " ");
+}
+
 export function GuideHeader({ guide }: GuideHeaderProps) {
   return (
     <header className="guide-header">
@@ -25,6 +40,7 @@ export function GuideHeader({ guide }: GuideHeaderProps) {
         <h1>{guide.title}</h1>
         <p className="lede">{guide.description}</p>
       </div>
+      <p className="workflow-kicker guide-pattern">{patternLabel(guide.concepts)}</p>
       <div className="entry-meta guide-meta">
         <span className="tag">{difficultyLabel(guide.difficulty)}</span>
         {guide.estimatedTime ? (

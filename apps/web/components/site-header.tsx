@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-const links = [
-  { href: "/learn", label: "Learn" },
-  { href: "/prompts", label: "Prompts" },
-  { href: "/guides", label: "Guides" },
+const links: Array<{ href: string; label: string; external?: boolean }> = [
   { href: "/context", label: "Context" },
+  { href: "/guides", label: "Guides" },
+  { href: "/learn", label: "Learn" },
   { href: "/docs", label: "Docs" },
+  {
+    href: "https://github.com/drewsephski/promptmarket",
+    label: "GitHub",
+    external: true,
+  },
 ];
 
 export function SiteHeader() {
@@ -56,7 +60,13 @@ export function SiteHeader() {
         <nav className="nav-inline" aria-label="Primary">
           {links.map(function renderLink(link) {
             return (
-              <a key={link.href} href={link.href}>
+              <a
+                key={link.href}
+                href={link.href}
+                {...(link.external
+                  ? { target: "_blank", rel: "noreferrer" }
+                  : {})}
+              >
                 {link.label}
               </a>
             );
@@ -86,7 +96,14 @@ export function SiteHeader() {
           </a>
           {links.map(function renderOverlayLink(link) {
             return (
-              <a key={link.href} href={link.href} onClick={handleClose}>
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={handleClose}
+                {...(link.external
+                  ? { target: "_blank", rel: "noreferrer" }
+                  : {})}
+              >
                 {link.label}
               </a>
             );
@@ -100,12 +117,12 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="footer">
-      <p>Learn the pattern. Grab the prompt. Build.</p>
+      <p>Build AI features with the right context.</p>
       <span className="footer-links">
+        <a href="/context">Context</a>
+        <a href="/guides">Guides</a>
         <a href="/learn">Learn</a>
         <a href="/prompts">Prompts</a>
-        <a href="/guides">Guides</a>
-        <a href="/context">Context</a>
         <a href="/recipes">Skills</a>
         <a href="/docs">Docs</a>
         <a href="https://github.com/drewsephski/promptmarket">GitHub</a>

@@ -10,6 +10,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/guides",
     "/context",
     "/docs",
+    "/docs/cli",
+    "/docs/mcp",
     "/recipes",
     ...catalog.topics.map(function topicPath(topic) {
       return topic.href;

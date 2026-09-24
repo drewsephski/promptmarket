@@ -7,7 +7,7 @@ export default function NotFound() {
         <p className="lede">That page is not in the registry.</p>
       </header>
       <a className="back" href="/">
-        Back to recipes
+        Back home
       </a>
     </main>
   );
